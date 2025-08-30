@@ -35,6 +35,16 @@ ClientService/
     └── postgres_data/
 
 
+---
+
+## ⚙️ Tecnologias Utilizadas
+
+- **C# 11 / .NET 8**
+- **PostgreSQL**
+- **Docker & Docker Compose**
+- **ULID** para identificação global
+- **Logs estruturados** com medição de tempo de requisição
+
 
 📝 Licença
 
