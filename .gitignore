@@ -1,0 +1,9 @@
+# Ignorar arquivo de variáveis de ambiente
+.env
+
+# Ignorar arquivos binários e temporários do C#
+bin/
+obj/
+
+# Ignorar pastas do Docker
+docker-compose.override.yml
