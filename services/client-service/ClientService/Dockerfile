@@ -1,22 +1,19 @@
-# Etapa 1: build da aplicação
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 80
+
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copia os arquivos de projeto e restaura dependências
-COPY *.csproj ./
+# Copia apenas o csproj para restaurar dependências (cache)
+COPY ["ClientService.csproj", "./"]
 RUN dotnet restore
 
-# Copia todo o código e compila
-COPY . ./
+# Copia todo o restante do código
+COPY . .
 RUN dotnet publish -c Release -o /app
 
-# Etapa 2: imagem final para rodar
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM base AS final
 WORKDIR /app
-COPY --from=build /app ./
-
-# Expor porta padrão
-EXPOSE 80
-
-# Comando para rodar
+COPY --from=build /app .
 ENTRYPOINT ["dotnet", "ClientService.dll"]

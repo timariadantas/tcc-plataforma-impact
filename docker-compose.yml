@@ -1,6 +1,7 @@
-version: "3.9"
 
 services:
+  # -------------------------------
+  # ClientService
   client-service:
     build:
       context: ./services/client-service/ClientService
@@ -10,11 +11,16 @@ services:
       - "8000:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
-      - ConnectionStrings__DefaultConnection=Host=${DB_HOST};Port=${DB_PORT};Username=${DB_USER};Password=${DB_PASSWORD};Database=${DB_NAME}
+      - DOTNET_RUNNING_IN_CONTAINER=true
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Username=${DB_USER};Password=${DB_PASSWORD};Database=${DB_NAME}
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - tcc-network
 
+  # -------------------------------
+  # Banco do ClientService
   db:
     image: postgres:15
     container_name: client-db
@@ -22,17 +28,69 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_DB: mariaclient201
     ports:
-      - "${DB_PORT}:5432"
+      - "5434:5432"  # porta host:container
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker-initdb:/docker-entrypoint-initdb.d
+      - ./services/client-service/docker-initdb:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 5s
       retries: 10
       start_period: 10s
+    networks:
+      - tcc-network
 
+  # -------------------------------
+  # ProductService
+  product-service:
+    build:
+      context: ./services/product-service/ProductService
+      dockerfile: Dockerfile
+    container_name: product-service
+    ports:
+      - "8002:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ConnectionStrings__DefaultConnection=Host=product-db;Port=5432;Username=${PRODUCT_DB_USER};Password=${PRODUCT_DB_PASSWORD};Database=${PRODUCT_DB_NAME}
+    depends_on:
+      product-db:
+        condition: service_healthy
+    networks:
+      - tcc-network
+
+  # -------------------------------
+  # Banco do ProductService
+  product-db:
+    image: postgres:15
+    container_name: product-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${PRODUCT_DB_USER}
+      POSTGRES_PASSWORD: ${PRODUCT_DB_PASSWORD}
+      POSTGRES_DB: mariaproduct201
+    ports:
+      - "5435:5432"  # porta host:container
+    volumes:
+      - product_data:/var/lib/postgresql/data
+      - ./services/product-service/docker-initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PRODUCT_DB_USER}"]
+      interval: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - tcc-network
+
+# -------------------------------
+# Volumes persistentes
 volumes:
   postgres_data:
+  product_data:
+
+# -------------------------------
+# Rede para comunicação
+networks:
+  tcc-network:
+    driver: bridge

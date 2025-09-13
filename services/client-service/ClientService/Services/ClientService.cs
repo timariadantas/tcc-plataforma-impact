@@ -1,8 +1,8 @@
 using ClientService.Domain;
 using ClientService.Domain.Validation;
-using ClientService.Service;
 using ClientService.Storage;
-
+using System;
+using System.Collections.Generic;
 
 namespace ClientService.Service
 {
@@ -15,34 +15,58 @@ namespace ClientService.Service
         {
             _storage = storage;
             _validators = new List<IValidationStrategy<Client>>
-        {
-            new EmailValidation(),
-            new NameValidation()
-        };
+            {
+                new EmailValidation(),
+                new NameValidation()
+            };
         }
 
+        // CREATE
         public void Create(Client client)
         {
-            foreach (var v in _validators) v.Validate(client);
+            // Validações
+            foreach (var validator in _validators)
+            {
+                validator.Validate(client);
+            }
 
             client.CreatedAt = DateTime.UtcNow;
             client.UpdatedAt = DateTime.UtcNow;
 
-            _storage.Create(client);
-
+            _storage.Create(client); // síncrono
         }
-        public Client? GetById(string id) => _storage.GetById(id);
 
-        public void Delete(string id) => _storage.Delete(id);
-    
+        // GET BY ID
+        public Client? GetById(string id)
+        {
+            return _storage.GetById(id); // síncrono
+        }
 
-        public List<Client> GetAll() => _storage.GetAll();
-    
+        // GET ALL
+        public List<Client> GetAll()
+        {
+            return _storage.GetAll(); // síncrono
+        }
 
-        
+        // DELETE
+        public void Delete(string id)
+        {
+            _storage.Delete(id); 
+        }
+
+        // UPDATE
+        public void Update(Client client)
+        {
+            // Validações
+            foreach (var validator in _validators)
+            {
+                validator.Validate(client);
+            }
+
+            client.UpdatedAt = DateTime.UtcNow;
+
+            
+        }
+
     }
-
-
 }
-
-

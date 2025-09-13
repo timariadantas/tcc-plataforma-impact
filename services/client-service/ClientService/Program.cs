@@ -1,7 +1,26 @@
 using ClientService.Storage;
 using ClientService.Service;
+using ClientService.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// LoggerService duplo docker (logs em memória)  Local (logs em arquivo + memória)
+
+
+// Detecta se está rodando dentro do container
+bool isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+
+LoggerService logger;
+if (isDocker)
+{
+
+    logger = new LoggerService();
+}
+else
+{
+    logger = new LoggerService("logs/client-logs.txt");
+}
+
 
 // Pega a connection string do ambiente
 string connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
@@ -10,6 +29,7 @@ string connectionString = Environment.GetEnvironmentVariable("ConnectionStrings_
 // Injeção de dependência
 builder.Services.AddSingleton<IClientStorage>(new ClientStorage(connectionString));
 builder.Services.AddScoped<IClientService, ClientService.Service.ClientService>();
+builder.Services.AddSingleton(logger);
 
 // Adiciona Swagger
 builder.Services.AddSwaggerGen();

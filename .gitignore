@@ -7,3 +7,5 @@ obj/
 
 # Ignorar pastas do Docker
 docker-compose.override.yml
+
+.fake

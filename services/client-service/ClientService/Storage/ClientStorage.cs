@@ -1,8 +1,7 @@
-using System.Data;
-using System.Runtime.CompilerServices;
 using ClientService.Domain;
-using Microsoft.AspNetCore.Identity;
 using Npgsql;
+using System;
+using System.Collections.Generic;
 
 namespace ClientService.Storage
 {
@@ -15,13 +14,15 @@ namespace ClientService.Storage
             _connectionString = connectionString;
         }
 
+        // CREATE
         public void Create(Client client)
         {
             using var conn = new NpgsqlConnection(_connectionString);
-            conn.Open();
+            conn.Open(); // síncrono
 
             using var cmd = new NpgsqlCommand(@"
-            INSERT INTO clients(id, name , surname, email, birthdate , created_at , updated_at, active) VALUES (@id, @name, @surname, @email, @birthdate, @created_at, @updated_at, @active)", conn);
+                INSERT INTO clients(id, name, surname, email, birthdate, created_at, updated_at, active)
+                VALUES (@id, @name, @surname, @email, @birthdate, @created_at, @updated_at, @active)", conn);
 
             cmd.Parameters.AddWithValue("id", client.Id);
             cmd.Parameters.AddWithValue("name", client.Name);
@@ -32,19 +33,19 @@ namespace ClientService.Storage
             cmd.Parameters.AddWithValue("updated_at", client.UpdatedAt);
             cmd.Parameters.AddWithValue("active", client.Active);
 
-            cmd.ExecuteNonQuery();
-
+            cmd.ExecuteNonQuery(); // síncrono
         }
 
+        // GET BY ID
         public Client? GetById(string id)
         {
             using var conn = new NpgsqlConnection(_connectionString);
-            conn.Open();
+            conn.Open(); // síncrono
 
             using var cmd = new NpgsqlCommand("SELECT * FROM clients WHERE id = @id", conn);
             cmd.Parameters.AddWithValue("id", id);
 
-            using var reader = cmd.ExecuteReader();
+            using var reader = cmd.ExecuteReader(); // síncrono
             if (!reader.Read()) return null;
 
             return new Client
@@ -59,15 +60,17 @@ namespace ClientService.Storage
                 Active = reader.GetBoolean(reader.GetOrdinal("active")),
             };
         }
+
+        // GET ALL
         public List<Client> GetAll()
         {
-
             var list = new List<Client>();
+
             using var conn = new NpgsqlConnection(_connectionString);
-            conn.Open();
+            conn.Open(); // síncrono
 
             using var cmd = new NpgsqlCommand("SELECT * FROM clients", conn);
-            using var reader = cmd.ExecuteReader();
+            using var reader = cmd.ExecuteReader(); // síncrono
 
             while (reader.Read())
             {
@@ -77,34 +80,50 @@ namespace ClientService.Storage
                     Name = reader.GetString(reader.GetOrdinal("name")),
                     Surname = reader.GetString(reader.GetOrdinal("surname")),
                     Email = reader.GetString(reader.GetOrdinal("email")),
-                    Birthdate = reader.GetDateTime(reader.GetOrdinal("Birthdate")),
+                    Birthdate = reader.GetDateTime(reader.GetOrdinal("birthdate")),
                     CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
-                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("Updated_at")),
+                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
                     Active = reader.GetBoolean(reader.GetOrdinal("active")),
                 });
             }
+
             return list;
         }
 
+        // DELETE
         public void Delete(string id)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            conn.Open(); // síncrono
+
+            using var cmd = new NpgsqlCommand("DELETE FROM clients WHERE id = @id", conn);
+            cmd.Parameters.AddWithValue("id", id);
+
+            cmd.ExecuteNonQuery(); // síncrono
+        }
+
+        // UPDATE (opcional)
+        public void Update(Client client)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             conn.Open();
 
-            using var cmd = new NpgsqlCommand("DELETE FROM clients WHERE id = @id", conn);
+            using var cmd = new NpgsqlCommand(@"
+                UPDATE clients 
+                SET name = @name, surname = @surname, email = @email, birthdate = @birthdate, 
+                    updated_at = @updated_at, active = @active
+                WHERE id = @id", conn);
 
-            cmd.Parameters.AddWithValue("id", id);
+            cmd.Parameters.AddWithValue("id", client.Id);
+            cmd.Parameters.AddWithValue("name", client.Name);
+            cmd.Parameters.AddWithValue("surname", client.Surname);
+            cmd.Parameters.AddWithValue("email", client.Email);
+            cmd.Parameters.AddWithValue("birthdate", client.Birthdate);
+            cmd.Parameters.AddWithValue("updated_at", client.UpdatedAt);
+            cmd.Parameters.AddWithValue("active", client.Active);
 
             cmd.ExecuteNonQuery();
         }
 
-       
     }
 }
-     
-
-// Anotações IPC
-// CRUD - CREATE - READ - UPDATE - DELETE
-//Repository Pattern: ClientStorage  isolando acesso ao banco.
-//Separation of Concerns: Storage não tem lógica de negócio.
-//SQL puro (sem ORM)
