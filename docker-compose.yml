@@ -1,6 +1,5 @@
 
 services:
-  # -------------------------------
   # ClientService
   client-service:
     build:
@@ -19,7 +18,6 @@ services:
     networks:
       - tcc-network
 
-  # -------------------------------
   # Banco do ClientService
   db:
     image: postgres:15
@@ -42,7 +40,7 @@ services:
     networks:
       - tcc-network
 
-  # -------------------------------
+
   # ProductService
   product-service:
     build:
@@ -60,7 +58,6 @@ services:
     networks:
       - tcc-network
 
-  # -------------------------------
   # Banco do ProductService
   product-db:
     image: postgres:15
@@ -83,6 +80,20 @@ services:
     networks:
       - tcc-network
 
+  # CurrencyService
+  currency-service:
+    build:
+      context: ./services/currency-service/CurrencyService
+      dockerfile: Dockerfile
+    container_name: currency-service
+    ports:
+      - "5000:8080"  # porta container:porta host
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - DOTNET_RUNNING_IN_CONTAINER=true
+      - CurrencyApiUrl=https://economia.awesomeapi.com.br/all
+    networks:
+      - tcc-network
 # -------------------------------
 # Volumes persistentes
 volumes:
