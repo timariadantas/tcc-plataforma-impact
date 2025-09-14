@@ -92,6 +92,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - DOTNET_RUNNING_IN_CONTAINER=true
       - CurrencyApiUrl=https://economia.awesomeapi.com.br/all
+
+    volumes:
+      - ./services/currency-service/logs:/app/Logs  # 🔹 volume mapeado no host
     networks:
       - tcc-network
 # -------------------------------
