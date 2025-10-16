@@ -1,4 +1,4 @@
-# 🚀 TCC - Sistema de Serviços
+# 🚀 MEU TCC - Sistema de Serviços
 **Plataforma Impact**
 
 ![.NET](https://img.shields.io/badge/.NET-8.0-blue)
@@ -67,6 +67,8 @@ Docker & Docker Compose
 ULID para identificação global
 Logs estruturados 
 Caddy
+
+Esse projeto foi contruido com a ajuda do meu mentor Rafael Fino , Jedis da Plataforma Impact e outros colaboradores .
 
 
 📝 Licença
