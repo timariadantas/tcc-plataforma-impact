@@ -10,7 +10,8 @@
 Projeto desenvolvido como **TCC da Plataforma Impact**, simulando um ambiente real de empresa, com **serviços independentes**, **APIs REST**, **logs**, **testes** e **Docker**.  
 
 ---
-
+## 📂 Estrutura do Projeto
+ 
 ```mermaid
 flowchart TD
 %% Estilo geral
@@ -55,7 +56,6 @@ Tests --> Currency
 
 ```
 
-## 📂 Estrutura do Projeto
 
 
 
