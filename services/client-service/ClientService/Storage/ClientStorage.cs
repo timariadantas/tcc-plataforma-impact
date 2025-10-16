@@ -1,4 +1,5 @@
 using ClientService.Domain;
+using ClientService.Logging;
 using Npgsql;
 using System;
 using System.Collections.Generic;
@@ -8,10 +9,12 @@ namespace ClientService.Storage
     public class ClientStorage : IClientStorage
     {
         private readonly string _connectionString;
+        private readonly LoggerService _logger;
 
-        public ClientStorage(string connectionString)
+        public ClientStorage(string connectionString, LoggerService logger)
         {
             _connectionString = connectionString;
+            _logger = logger;
         }
 
         // CREATE
@@ -21,19 +24,24 @@ namespace ClientService.Storage
             conn.Open(); // síncrono
 
             using var cmd = new NpgsqlCommand(@"
-                INSERT INTO clients(id, name, surname, email, birthdate, created_at, updated_at, active)
-                VALUES (@id, @name, @surname, @email, @birthdate, @created_at, @updated_at, @active)", conn);
+                INSERT INTO clients( name, surname, email, birthdate)
+                VALUES ( @name, @surname, @email, @birthdate) RETURNING id, created_at, updated_at, active", conn);
 
-            cmd.Parameters.AddWithValue("id", client.Id);
+
             cmd.Parameters.AddWithValue("name", client.Name);
             cmd.Parameters.AddWithValue("surname", client.Surname);
             cmd.Parameters.AddWithValue("email", client.Email);
             cmd.Parameters.AddWithValue("birthdate", client.Birthdate);
-            cmd.Parameters.AddWithValue("created_at", client.CreatedAt);
-            cmd.Parameters.AddWithValue("updated_at", client.UpdatedAt);
-            cmd.Parameters.AddWithValue("active", client.Active);
 
-            cmd.ExecuteNonQuery(); // síncrono
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                client.Id = reader.GetString(reader.GetOrdinal("id"));
+                client.CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at"));
+                client.UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at"));
+                client.Active = reader.GetBoolean(reader.GetOrdinal("active"));
+            }
+
         }
 
         // GET BY ID
@@ -66,30 +74,42 @@ namespace ClientService.Storage
         {
             var list = new List<Client>();
 
-            using var conn = new NpgsqlConnection(_connectionString);
-            conn.Open(); // síncrono
-
-            using var cmd = new NpgsqlCommand("SELECT * FROM clients", conn);
-            using var reader = cmd.ExecuteReader(); // síncrono
-
-            while (reader.Read())
+            try
             {
-                list.Add(new Client
-                {
-                    Id = reader.GetString(reader.GetOrdinal("id")),
-                    Name = reader.GetString(reader.GetOrdinal("name")),
-                    Surname = reader.GetString(reader.GetOrdinal("surname")),
-                    Email = reader.GetString(reader.GetOrdinal("email")),
-                    Birthdate = reader.GetDateTime(reader.GetOrdinal("birthdate")),
-                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
-                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
-                    Active = reader.GetBoolean(reader.GetOrdinal("active")),
-                });
-            }
 
+                using var conn = new NpgsqlConnection(_connectionString);
+                conn.Open(); // síncrono
+
+                _logger.Log("Conexão aberta com sucesso em GetAll.");
+
+                using var cmd = new NpgsqlCommand("SELECT * FROM clients", conn);
+                using var reader = cmd.ExecuteReader(); // síncrono
+
+                while (reader.Read())
+                {
+                    list.Add(new Client
+                    {
+                        Id = reader.GetString(reader.GetOrdinal("id")),
+                        Name = reader.GetString(reader.GetOrdinal("name")),
+                        Surname = reader.GetString(reader.GetOrdinal("surname")),
+                        Email = reader.GetString(reader.GetOrdinal("email")),
+                        Birthdate = reader.GetDateTime(reader.GetOrdinal("birthdate")),
+                        CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+                        UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
+                        Active = reader.GetBoolean(reader.GetOrdinal("active")),
+                    });
+                }
+                _logger.Log($"GetAll finalizado. Total de clientes: {list.Count}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Log($"Erro no ClientStorage.GetAll: {ex.GetType().Name} - {ex.Message}");
+                _logger.Log(ex.StackTrace ?? "Sem stack trace");
+                throw;
+            }
             return list;
         }
-
+    
         // DELETE
         public void Delete(string id)
         {
@@ -110,8 +130,7 @@ namespace ClientService.Storage
 
             using var cmd = new NpgsqlCommand(@"
                 UPDATE clients 
-                SET name = @name, surname = @surname, email = @email, birthdate = @birthdate, 
-                    updated_at = @updated_at, active = @active
+                SET name = @name, surname = @surname, email = @email, birthdate = @birthdate,  active = @active
                 WHERE id = @id", conn);
 
             cmd.Parameters.AddWithValue("id", client.Id);
@@ -119,7 +138,6 @@ namespace ClientService.Storage
             cmd.Parameters.AddWithValue("surname", client.Surname);
             cmd.Parameters.AddWithValue("email", client.Email);
             cmd.Parameters.AddWithValue("birthdate", client.Birthdate);
-            cmd.Parameters.AddWithValue("updated_at", client.UpdatedAt);
             cmd.Parameters.AddWithValue("active", client.Active);
 
             cmd.ExecuteNonQuery();

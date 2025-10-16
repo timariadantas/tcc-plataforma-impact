@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using CurrencyService.Domain;
 
-namespace CurrencyService.Storage;
-
-public interface IQuoteStorage
+namespace CurrencyService.Storage
 {
-    Task<IEnumerable<Quote>> GetAllAsync();
-    Task<Quote?> GetByCodeAsync(string code);
-    Task RefreshAsync(); // Força atualização da API externa
+    public interface IQuoteStorage
+    {
+        IEnumerable<Quote> GetAll(); // Retorna todas as cotações
+        Quote? GetByCode(string code); // Retorna uma cotação pelo código
+    }
 }

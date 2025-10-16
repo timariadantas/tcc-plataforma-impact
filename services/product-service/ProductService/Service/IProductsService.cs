@@ -1,17 +1,18 @@
 using ProductService.Domain;
-using System.Collections.Generic;
+using ProductService.Service;
+using System.Collections.Generic; 
 
 namespace ProductService.Service
 {
     public interface IProductsService
     {
-        void Create(Product product);
-        Product? GetById(string id);
+        Product Create(Product product);
         List<Product> GetAll();
-        void Delete(string id);
-         void UpdateProd(string id, string name, string desc);
-        void UpdatePrice(string id, decimal price);
-        void UpdateQuantity(string id, int quantity);
+        Product? GetById(string id);
+        Product UpdateProd(string id, string name, string description);
+        Product UpdatePrice(string id, decimal price);
+        Product UpdateQuantity(string id, int quantity);
         void Inactivate(string id);
+        void Delete(string id);
     }
 }

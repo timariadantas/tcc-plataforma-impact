@@ -1,83 +1,103 @@
-using System.Collections.Concurrent;
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
 using System.Text.Json;
 using CurrencyService.Domain;
-using Microsoft.Extensions.Logging;
+using CurrencyService.Logging;
 
-namespace CurrencyService.Storage;
-
-public class QuoteStorage : IQuoteStorage
+namespace CurrencyService.Storage
 {
-    private readonly string _apiUrl;
-    private readonly ConcurrentDictionary<string, Quote> _cache = new();
-    private DateOnly _lastUpdate = DateOnly.MinValue;
-    private readonly HttpClient _http = new();
-    private readonly ILogger<QuoteStorage> _logger;
-
-    public QuoteStorage(string apiUrl, ILogger<QuoteStorage> logger)
+    public class QuoteStorage : IQuoteStorage
     {
-        _apiUrl = apiUrl;
-        _logger = logger;
-    }
+        private readonly string _apiUrl;
+        private readonly Dictionary<string, Quote> _cache = new();
+        private DateTime _lastUpdate = DateTime.MinValue;
+        private readonly ILoggerService _logger;
 
-    public async Task<IEnumerable<Quote>> GetAllAsync()
-    {
-        await EnsureCacheAsync();
-        _logger.LogInformation("Retornando {Count} cotações do cache", _cache.Count);
-        return _cache.Values;
-    }
-
-    public async Task<Quote?> GetByCodeAsync(string code)
-    {
-        await EnsureCacheAsync();
-        _cache.TryGetValue(code.ToUpperInvariant(), out var q);
-        _logger.LogInformation(q != null
-            ? "Cotação encontrada para {Code}: {Value}"
-            : "Cotação {Code} não encontrada", code.ToUpper(), q?.Value);
-        return q;
-    }
-
-    public async Task RefreshAsync()
-    {
-        _logger.LogInformation("Forçando atualização do cache via RefreshAsync()");
-        await FetchAndFillCache();
-    }
-
-    private async Task EnsureCacheAsync()
-    {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        if (_lastUpdate == today)
+        public QuoteStorage(string apiUrl, ILoggerService logger)
         {
-            _logger.LogInformation("Usando cache atualizado em {Date}", _lastUpdate);
-            return;
+            _apiUrl = apiUrl;
+            _logger = logger;
         }
-        _logger.LogInformation("Cache expirado. Buscando novas cotações...");
-        await FetchAndFillCache();
-    }
 
-    private async Task FetchAndFillCache()
-    {
-        try
+        // Retorna todas as cotações do cache
+        public IEnumerable<Quote> GetAll()
         {
-            _logger.LogInformation("Consumindo API externa: {Url}", _apiUrl);
-            var resp = await _http.GetStringAsync(_apiUrl);
-            using var doc = JsonDocument.Parse(resp);
-            var root = doc.RootElement;
-            _cache.Clear();
+            _logger.Log("INFO", "GetAll() chamado, garantindo cache...");
+            EnsureCache();
+            return _cache.Values;
+        }
 
-            foreach (var prop in root.EnumerateObject())
+        // Retorna cotação específica
+        public Quote? GetByCode(string code)
+        {
+            _logger.Log("INFO", $"GetByCode() chamado para {code}");
+            EnsureCache();
+            _cache.TryGetValue(code.ToUpperInvariant(), out var q);
+            return q;
+        }
+
+        // Atualiza o cache da API
+        private void EnsureCache()
+        {
+            // Para teste, força atualizar a cada chamada
+            if (_lastUpdate.Date != DateTime.UtcNow.Date)
             {
-                if (!prop.Value.TryGetProperty("bid", out var bidEl)) continue;
-                var bid = decimal.Parse(bidEl.GetString()!, System.Globalization.CultureInfo.InvariantCulture);
-                var quote = new Quote { Code = prop.Name[..3], Value = bid, CreatedAt = DateTime.UtcNow };
-                _cache[quote.Code] = quote;
+                _logger.Log("INFO", "Atualizando cache de cotações...");
+                FetchAndFillCache();
+                _lastUpdate = DateTime.UtcNow;
             }
-
-            _lastUpdate = DateOnly.FromDateTime(DateTime.UtcNow);
-            _logger.LogInformation("Cache atualizado com {Count} cotações às {Time}", _cache.Count, DateTime.UtcNow);
         }
-        catch (Exception ex)
+
+        // Busca cotações na API externa
+        private void FetchAndFillCache()
         {
-            _logger.LogError(ex, "Erro ao buscar cotações na API externa");
+            try
+            {
+                using var http = new HttpClient();
+
+                // User-Agent obrigatório para algumas APIs
+                http.DefaultRequestHeaders.Add("User-Agent", "CurrencyServiceClient");
+
+                var response = http.GetAsync(_apiUrl).Result;
+                response.EnsureSuccessStatusCode();
+
+                var json = response.Content.ReadAsStringAsync().Result;
+                _logger.Log("INFO", $"JSON recebido da API (primeiros 200 chars): {json.Substring(0, Math.Min(200, json.Length))}...");
+
+                using var doc = JsonDocument.Parse(json);
+                _cache.Clear();
+
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (!prop.Value.TryGetProperty("bid", out var bidEl)) continue;
+
+                    if (!decimal.TryParse(bidEl.GetString(),
+                                          System.Globalization.NumberStyles.Any,
+                                          System.Globalization.CultureInfo.InvariantCulture,
+                                          out var bid))
+                    {
+                        _logger.Log("WARNING", $"Não foi possível converter bid da moeda {prop.Name}");
+                        continue;
+                    }
+
+                    var quote = new Quote
+                    {
+                        Code = prop.Name,
+                        Value = bid,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _cache[quote.Code] = quote;
+                    _logger.Log("INFO", $"Cotação {quote.Code} atualizada: {quote.Value}");
+                }
+
+                _logger.Log("INFO", $"Cache atualizado com {_cache.Count} cotações");
+            }
+            catch (Exception ex)
+            {
+                _logger.Log("ERROR", $"Erro ao atualizar cache de cotações: {ex}");
+            }
         }
     }
 }

@@ -1,31 +1,32 @@
-using ClientService.Domain;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ClientService.Domain;
 
-// Factory não é teste, apenas implementa IClientStorage em memória.
-
-namespace ClientService.Tests.ClientFactorys
+namespace ClientService.Tests.Factories
 {
+    // Fake storage para testes
     public class ClientFactoryInMemory : IClientStorage
     {
         private readonly List<Client> _clients = new();
 
         public void Create(Client client)
         {
-            client.Id ??= Ulid.NewUlid().ToString();
+            if (string.IsNullOrEmpty(client.Id))
+                client.Id = Guid.NewGuid().ToString();
             client.CreatedAt = DateTime.UtcNow;
+            client.UpdatedAt = DateTime.UtcNow;
             _clients.Add(client);
-        }
-
-        public Client? GetById(string id)
-        {
-            return _clients.FirstOrDefault(c => c.Id == id);
         }
 
         public List<Client> GetAll()
         {
             return _clients.ToList();
+        }
+
+        public Client? GetById(string id)
+        {
+            return _clients.FirstOrDefault(c => c.Id == id);
         }
 
         public void Update(Client client)
@@ -37,15 +38,15 @@ namespace ClientService.Tests.ClientFactorys
                 existing.Surname = client.Surname;
                 existing.Email = client.Email;
                 existing.Birthdate = client.Birthdate;
-                existing.UpdatedAt = client.UpdatedAt;
-                existing.Active = client.Active;
+                existing.UpdatedAt = DateTime.UtcNow;
             }
         }
 
         public void Delete(string id)
         {
             var client = _clients.FirstOrDefault(c => c.Id == id);
-            if (client != null) _clients.Remove(client);
+            if (client != null)
+                _clients.Remove(client);
         }
     }
 }

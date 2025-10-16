@@ -13,6 +13,7 @@ namespace ClientService.Domain
 }
 
 //Anotações IPC 
+//API para produção/integração externa → usar ApiResponse<T> é recomendado.
 
 //Armazena uma mensagem amigável sobre a resposta da API.Inicializada como string vazia.
 //Armazena o momento em que a resposta foi criada.

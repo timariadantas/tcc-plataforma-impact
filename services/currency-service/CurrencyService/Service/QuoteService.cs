@@ -1,35 +1,20 @@
+using System.Collections.Generic;
 using CurrencyService.Domain;
 using CurrencyService.Storage;
-using Microsoft.Extensions.Logging;
 
-namespace CurrencyService.Service;
-
-public class QuoteService
+namespace CurrencyService.Service
 {
-    private readonly IQuoteStorage _storage;
-    private readonly ILogger<QuoteService> _logger;
-
-    public QuoteService(IQuoteStorage storage, ILogger<QuoteService> logger)
+    public class QuoteService : IQuoteService
     {
-        _storage = storage;
-        _logger = logger;
-    }
+        private readonly IQuoteStorage _storage;
 
-    public async Task<IEnumerable<Quote>> GetQuotesAsync()
-    {
-        _logger.LogInformation("Service: Obtendo todas as cotações");
-        return await _storage.GetAllAsync();
-    }
+        public QuoteService(IQuoteStorage storage)
+        {
+            _storage = storage; // Injeta o Storage
+        }
 
-    public async Task<Quote?> GetQuoteAsync(string code)
-    {
-        _logger.LogInformation("Service: Obtendo cotação para {Code}", code);
-        return await _storage.GetByCodeAsync(code);
-    }
+        public IEnumerable<Quote> GetAll() => _storage.GetAll(); // Apenas repassa para o storage
 
-    public async Task RefreshAsync()
-    {
-        _logger.LogInformation("Service: Forçando atualização de cache");
-        await _storage.RefreshAsync();
+        public Quote? GetByCode(string code) => _storage.GetByCode(code); // Repassa para o storage
     }
 }

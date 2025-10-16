@@ -1,6 +1,8 @@
-using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Diagnostics;
+using CurrencyService.Logging;
 using CurrencyService.Service;
-using Serilog;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CurrencyService.Controllers
 {
@@ -9,45 +11,93 @@ namespace CurrencyService.Controllers
     public class CurrencyController : ControllerBase
     {
         private readonly QuoteService _service;
-        private readonly ILogger<CurrencyController> _logger;
+        private readonly LoggerService _logger;
 
-        public CurrencyController(QuoteService service, ILogger<CurrencyController> logger)
+        public CurrencyController(QuoteService service, LoggerService logger)
         {
             _service = service;
             _logger = logger;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public IActionResult GetAll()
         {
-            _logger.LogInformation("GET /api/currency chamado");
-            var quotes = await _service.GetQuotesAsync();
-            return Ok(new
+            var sw = Stopwatch.StartNew();
+            try
             {
-                message = "Cotação das moedas",
-                timestamp = DateTime.UtcNow,
-                data = quotes
-            });
+                var quotes = _service.GetAll(); // pega todas as moedas do cache
+
+                sw.Stop();
+                _logger.Log("INFO", $"GET /api/currency retornou {quotes?.Count() ?? 0} cotações");
+                return Ok(new
+                {
+                    message = "Cotação das moedas",
+                    timestamp = DateTime.UtcNow,
+                    elapsed = sw.ElapsedMilliseconds,
+                    data = quotes,
+                    error = ""
+                });
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                _logger.Log("ERROR", $"Erro em GET /api/currency: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    message = "Erro ao obter cotações",
+                    timestamp = DateTime.UtcNow,
+                    elapsed = sw.ElapsedMilliseconds,
+                    data = (object?)null,
+                    error = ex.Message
+                });
+            }
         }
 
         [HttpGet("{code}")]
-        public async Task<IActionResult> GetOne(string code)
+        public IActionResult GetOne(string code)
         {
-            _logger.LogInformation("GET /api/currency/{code} chamado", code);
-            var quote = await _service.GetQuoteAsync(code);
-            if (quote is null)
+            var sw = Stopwatch.StartNew();
+            try
             {
-                _logger.LogWarning("Moeda {Code} não encontrada", code);
-                return NotFound(new { message = $"Cotação '{code}' não encontrada" });
-            }
+                var quote = _service.GetByCode(code.ToUpper());
+                sw.Stop();
 
-            return Ok(new
+                if (quote == null)
+                {
+                    _logger.Log("WARNING", $"Moeda {code} não encontrada");
+                    return NotFound(new
+                    {
+                        message = $"Cotação '{code}' não encontrada",
+                        timestamp = DateTime.UtcNow,
+                        elapsed = sw.ElapsedMilliseconds,
+                        data = (object?)null,
+                        error = "Não encontrada"
+                    });
+                }
+
+                _logger.Log("INFO", $"GET /api/currency/{code} retornou cotação");
+                return Ok(new
+                {
+                    message = "Cotação da moeda",
+                    timestamp = DateTime.UtcNow,
+                    elapsed = sw.ElapsedMilliseconds,
+                    data = quote,
+                    error = ""
+                });
+            }
+            catch (Exception ex)
             {
-                message = "Cotação da moeda",
-                timestamp = DateTime.UtcNow,
-                data = quote
-            });
+                sw.Stop();
+                _logger.Log("ERROR", $"Erro em GET /api/currency/{code}: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    message = "Erro ao obter cotação",
+                    timestamp = DateTime.UtcNow,
+                    elapsed = sw.ElapsedMilliseconds,
+                    data = (object?)null,
+                    error = ex.Message
+                });
+            }
         }
     }
 }
-

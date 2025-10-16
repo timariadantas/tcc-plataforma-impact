@@ -1,5 +1,5 @@
 using System;
-
+using static System.Ulid;
 namespace ClientService.Domain
 {
     public static class ClientFactory

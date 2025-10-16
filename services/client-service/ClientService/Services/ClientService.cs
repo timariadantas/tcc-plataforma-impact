@@ -30,9 +30,6 @@ namespace ClientService.Service
                 validator.Validate(client);
             }
 
-            client.CreatedAt = DateTime.UtcNow;
-            client.UpdatedAt = DateTime.UtcNow;
-
             _storage.Create(client); // síncrono
         }
 
@@ -51,7 +48,11 @@ namespace ClientService.Service
         // DELETE
         public void Delete(string id)
         {
-            _storage.Delete(id); 
+            var client = _storage.GetById(id);
+            if (client == null)
+                throw new ArgumentException("Cliente não encontrado");
+
+            _storage.Delete(id);
         }
 
         // UPDATE
@@ -63,9 +64,9 @@ namespace ClientService.Service
                 validator.Validate(client);
             }
 
-            client.UpdatedAt = DateTime.UtcNow;
+            _storage.Update(client); // envia apenas os campos que o usuário pode alterar
 
-            
+
         }
 
     }

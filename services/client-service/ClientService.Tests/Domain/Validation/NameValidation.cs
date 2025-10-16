@@ -28,7 +28,7 @@ namespace ClientService.Testes.Domain
 
             //Act & Assert:
             var ex = Assert.Throws<ArgumentException>(() => validator.Validate(client));
-            Assert.Equal("Sobrenome é obrigátio.", ex.Message);
+            Assert.Equal("Sobrenome é obrigatório.", ex.Message);
         }
 
         [Fact]

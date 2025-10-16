@@ -1,0 +1,31 @@
+# Escuta na porta 80 (HTTP)
+http://0.0.0.0:80 {
+    encode gzip
+
+    # ClientService
+    handle_path /api/client* {
+        reverse_proxy client-service:80
+    }
+
+    # ProductService
+    handle_path /api/products* {
+        reverse_proxy product-service:8080
+    }
+
+    # CartService (Vendas)
+    handle_path /sales* {
+        reverse_proxy cart-service:8080
+    }
+
+    # CurrencyService
+    handle_path /api/currency* {
+        reverse_proxy currency-service:5000
+    }
+
+    # Logs do Caddy (opcional)
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}

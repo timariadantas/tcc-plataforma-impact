@@ -1,4 +1,4 @@
-namespace ClientService.Tests;
+namespace ProductService.Tests.Integration;
 
 public class UnitTest1
 {

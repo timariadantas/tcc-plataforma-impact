@@ -7,7 +7,7 @@ public class NameValidation : IValidationStrategy<Client>
         if (string.IsNullOrWhiteSpace(client.Name))
             throw new ArgumentException("Nome é obrigatório");
         if (string.IsNullOrWhiteSpace(client.Surname))
-            throw new ArgumentException("Sobrenome é obrigátio.");
+            throw new ArgumentException("Sobrenome é obrigatório.");
     }
 }
 

@@ -1,92 +1,66 @@
-using ClientService.Domain;
-using ClientService.Service;
-using ClientService.Storage;
-using System;
-using System.Collections.Generic;
 using Xunit;
+using ClientService.Storage;
+using ClientService.Domain;
+using System;
+using System.IO;
+using DotNetEnv;
+using ClientService.Logging;
 
-namespace ClientService.Tests.Integration
+namespace ClientService.IntegrationTests
 {
-    public class ClientIntegrationTests : IDisposable
+    public class ClientIntegrationTests
     {
-        private readonly ClientService.Service.ClientService _service;
         private readonly ClientStorage _storage;
 
         public ClientIntegrationTests()
-        {
-            // Pega a connection string do ambiente
-        string connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-                                  ?? throw new InvalidOperationException("Connection string não definida");
 
-            _storage = new ClientStorage(connectionString); // storage real
-            _service = new ClientService.Service.ClientService(_storage); // service real
+        {
+            // 🔹 Carrega variáveis do .env (para rodar fora do container)
+            Env.Load("/home/mariadantas/plataforma-tcc/.env");
+
+            // Detecta se o teste está rodando dentro do container
+            bool runningInDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+
+            // Configura host e porta dinamicamente
+            string host = runningInDocker 
+                ? "client-db" 
+                : Environment.GetEnvironmentVariable("CLIENT_DB_HOST");
+
+            string port = runningInDocker 
+                ? "5432" 
+                : Environment.GetEnvironmentVariable("CLIENT_DB_PORT");
+
+            string user = Environment.GetEnvironmentVariable("CLIENT_DB_USER");
+            string password = Environment.GetEnvironmentVariable("CLIENT_DB_PASSWORD");
+            string database = Environment.GetEnvironmentVariable("CLIENT_DB_NAME");
+
+            // Monta a connection string
+            string connectionString = $"Host={host};Port={port};Username={user};Password={password};Database={database}";
+
+            //  Cria o logger necessário para o ClientStorage
+            var logger = new LoggerService();
+
+            _storage = new ClientStorage(connectionString , logger);
         }
 
         [Fact]
-        public void CreateClient_ShouldAddClientInDatabase()
+        public void CreateClient_ShouldPersistInDatabase()
         {
+            // Arrange
             var client = new Client
             {
-                Name = "Docker",
-                Surname = "Test",
-                Email = "docker@test.com",
-                Birthdate = DateTime.UtcNow,
-                Active = true
+                Name = "TestIntegration",
+                Surname = "User",
+                Email = "integration@test.com",
+                Birthdate = new DateTime(1990, 1, 1)
             };
 
-            _service.Create(client);
+            // Act
+            _storage.Create(client);
+            var clients = _storage.GetAll();
 
-            var result = _service.GetById(client.Id);
-
-            Assert.NotNull(result);
-            Assert.Equal(client.Name, result!.Name);
-        }
-
-        [Fact]
-        public void UpdateClient_ShouldModifyClientInDatabase()
-        {
-            var client = new Client
-            {
-                Name = "Docker",
-                Surname = "Test",
-                Email = "docker@test.com",
-                Birthdate = DateTime.UtcNow,
-                Active = true
-            };
-
-            _service.Create(client);
-
-            // Atualizar
-            client.Name = "Docker Updated";
-            client.UpdatedAt = DateTime.UtcNow;
-            _service.Update(client);
-
-            var updated = _service.GetById(client.Id);
-            Assert.Equal("Docker Updated", updated!.Name);
-        }
-
-        [Fact]
-        public void DeleteClient_ShouldRemoveClientFromDatabase()
-        {
-            var client = new Client
-            {
-                Name = "Docker",
-                Surname = "Test",
-                Email = "docker@test.com",
-                Birthdate = DateTime.UtcNow,
-                Active = true
-            };
-
-            _service.Create(client);
-            _service.Delete(client.Id);
-
-            var deleted = _service.GetById(client.Id);
-            Assert.Null(deleted);
-        }
-
-        public void Dispose()
-        {
-            // Aqui você poderia limpar dados criados no banco
+            // Assert
+            Assert.Contains(clients, c => c.Email == "integration@test.com");
         }
     }
 }

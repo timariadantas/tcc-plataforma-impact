@@ -1,64 +1,67 @@
-
 services:
+
   # ClientService
   client-service:
     build:
-      context: ./services/client-service/ClientService
-      dockerfile: Dockerfile
-    container_name: client-service
+      context: ./services/client-service
+      dockerfile: ClientService/Dockerfile
     ports:
-      - "8000:80"
+      - "8080:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Username=${DB_USER};Password=${DB_PASSWORD};Database=${DB_NAME}
+      - CLIENT_DB_HOST=client-db
+      - CLIENT_DB_PORT=5432
+      - CLIENT_DB_USER=${CLIENT_DB_USER}
+      - CLIENT_DB_PASSWORD=${CLIENT_DB_PASSWORD}
+      - CLIENT_DB_NAME=${CLIENT_DB_NAME}
     depends_on:
-      db:
-        condition: service_healthy
+      - client-db
     networks:
       - tcc-network
 
-  # Banco do ClientService
-  db:
+  client-db:
     image: postgres:15
     container_name: client-db
     restart: always
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: mariaclient201
+      POSTGRES_USER: ${CLIENT_DB_USER}
+      POSTGRES_PASSWORD: ${CLIENT_DB_PASSWORD}
+      POSTGRES_DB: ${CLIENT_DB_NAME}
     ports:
-      - "5434:5432"  # porta host:container
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./services/client-service/docker-initdb:/docker-entrypoint-initdb.d
+      - ./services/client-service/logs:/app/Logs
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${CLIENT_DB_USER}"]
       interval: 5s
       retries: 10
-      start_period: 10s
+      start_period: 30s
     networks:
       - tcc-network
-
 
   # ProductService
   product-service:
     build:
       context: ./services/product-service/ProductService
       dockerfile: Dockerfile
-    container_name: product-service
     ports:
       - "8002:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
-      - ConnectionStrings__DefaultConnection=Host=product-db;Port=5432;Username=${PRODUCT_DB_USER};Password=${PRODUCT_DB_PASSWORD};Database=${PRODUCT_DB_NAME}
+      - DOTNET_RUNNING_IN_CONTAINER=true 
+      - PRODUCT_DB_USER=${PRODUCT_DB_USER}
+      - PRODUCT_DB_PASSWORD=${PRODUCT_DB_PASSWORD}
+      - PRODUCT_DB_NAME=${PRODUCT_DB_NAME}
+      - PRODUCT_DB_HOST=product-db
+      - PRODUCT_DB_PORT=5432  
     depends_on:
-      product-db:
-        condition: service_healthy
+      - product-db
     networks:
       - tcc-network
 
-  # Banco do ProductService
   product-db:
     image: postgres:15
     container_name: product-db
@@ -66,9 +69,9 @@ services:
     environment:
       POSTGRES_USER: ${PRODUCT_DB_USER}
       POSTGRES_PASSWORD: ${PRODUCT_DB_PASSWORD}
-      POSTGRES_DB: mariaproduct201
+      POSTGRES_DB: ${PRODUCT_DB_NAME}
     ports:
-      - "5435:5432"  # porta host:container
+      - "5435:5432"
     volumes:
       - product_data:/var/lib/postgresql/data
       - ./services/product-service/docker-initdb:/docker-entrypoint-initdb.d
@@ -87,24 +90,87 @@ services:
       dockerfile: Dockerfile
     container_name: currency-service
     ports:
-      - "5000:8080"  # porta container:porta host
+      - "5000:5000"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - CurrencyApiUrl=https://economia.awesomeapi.com.br/all
-
+      - CurrencyApiUrl=${CurrencyApiUrl}
     volumes:
-      - ./services/currency-service/logs:/app/Logs  # 🔹 volume mapeado no host
+      - ./services/currency-service/logs:/app/Logs
     networks:
       - tcc-network
-# -------------------------------
-# Volumes persistentes
+
+  # CartService
+  cart-service:
+    build:
+      context: ./services/cart-service/CartService
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - DOTNET_RUNNING_IN_CONTAINER=true
+      - CART_DB_HOST=cart-db
+      - CART_DB_PORT=5432
+      - CART_DB_USER=${CART_DB_USER}
+      - CART_DB_PASSWORD=${CART_DB_PASSWORD}
+      - CART_DB_NAME=${CART_DB_NAME}
+    depends_on:
+      - cart-db
+    networks:
+      - tcc-network
+
+  cart-db:
+    image: postgres:15
+    container_name: cart-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${CART_DB_USER}
+      POSTGRES_PASSWORD: ${CART_DB_PASSWORD}
+      POSTGRES_DB: ${CART_DB_NAME}
+    ports:
+      - "5436:5432"
+    volumes:
+      - cart_data:/var/lib/postgresql/data
+      - ./services/cart-service/CartService/docker-initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CART_DB_USER}"]
+      interval: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - tcc-network
+
+  # Caddy reverse-proxy
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - client-service
+      - product-service
+      - currency-service
+      - cart-service
+    networks:
+      - tcc-network
+
 volumes:
   postgres_data:
   product_data:
+  cart_data:
+  caddy_data:
+  caddy_config:
 
-# -------------------------------
-# Rede para comunicação
 networks:
   tcc-network:
     driver: bridge

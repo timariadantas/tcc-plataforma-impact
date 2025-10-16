@@ -1,41 +1,57 @@
-using CurrencyService.Service;
 using CurrencyService.Storage;
-using Serilog;
+using CurrencyService.Service;
+using CurrencyService.Logging;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configura Serilog para console + arquivo
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
-    .WriteTo.Console()
-    .WriteTo.File("/app/logs/currency.log", rollingInterval: RollingInterval.Day)
-    .CreateLogger(); 
-                                     
-    builder.Host.UseSerilog(); // usa o Serilog no lugar do logger padrão
+// -------------------------------
+// LoggerService (Singleton para toda a aplicação)
+builder.Services.AddSingleton<LoggerService>(sp =>
+{
+    // Pode passar um caminho de arquivo para salvar logs, se quiser
+    return new LoggerService();
+});
 
-// Pegar a URL da API externa da variável de ambiente
+// -------------------------------
+// URL da API externa
 var apiUrl = builder.Configuration["CurrencyApiUrl"] ?? "https://economia.awesomeapi.com.br/all";
 
-// Registrar o Storage passando a URL
+// -------------------------------
+// QuoteStorage (Singleton com User-Agent)
 builder.Services.AddSingleton<IQuoteStorage>(sp =>
 {
-  var logger = sp.GetRequiredService<ILogger<QuoteStorage>>();
+    var logger = sp.GetRequiredService<LoggerService>();
     return new QuoteStorage(apiUrl, logger);
 });
 
-// Registrar o Service
-builder.Services.AddScoped<QuoteService>();
+// -------------------------------
+// QuoteService (Singleton)
+builder.Services.AddSingleton<QuoteService>();
 
+// -------------------------------
+// Adiciona Controllers e Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// -------------------------------
+// Middleware Swagger e HTTPS
 app.UseSwagger();
 app.UseSwaggerUI();
-
 app.UseHttpsRedirection();
+
 app.MapControllers();
 
+// -------------------------------
+// Configura para aceitar qualquer IP (importante para Docker)
+app.Urls.Clear();
+app.Urls.Add("http://0.0.0.0:5000");
+
+// -------------------------------
+// Inicializa aplicação
 app.Run();

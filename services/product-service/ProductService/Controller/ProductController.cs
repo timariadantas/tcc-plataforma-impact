@@ -1,158 +1,214 @@
 using Microsoft.AspNetCore.Mvc;
-using ProductService.Domain;
-using ProductService.Service;
-using ProductService.Logging; // Certifique-se de que LoggerService está nesse namespace
+using ProductService.Service;          
+using ProductService.Domain;           
+using ProductService.DTO.Requests;     
+using ProductService.DTO.Responses;    
 
 namespace ProductService.Controllers
 {
     [ApiController]
-    [Route("products")]
-    public class ProductController : ControllerBase
+    [Route("api/products")] 
+    public class ProductsController : ControllerBase
     {
         private readonly IProductsService _service;
-        private readonly LoggerService _logger;
 
-        public ProductController(IProductsService service, LoggerService logger)
+        public ProductsController(IProductsService service)
         {
             _service = service;
-            _logger = logger;
         }
 
+       
+        // Criar produto
         [HttpPost]
-        public IActionResult Create([FromBody] Product product)
+        public ActionResult<ProductResponseDto> Create([FromBody] CreateProductDto dto)
         {
-            try
+            // Converte DTO de entrada para domínio
+            var product = new Product
             {
-                _service.Create(product);
-                _logger.Log($"Produto criado: {product.Name}");
-                return Ok(new {
-                    message = "Produto criado com sucesso",
-                    timestamp = DateTime.UtcNow
-                });
-            }
-            catch (Exception ex)
+                Name = dto.Name,
+                Description = dto.Description,
+                Price = dto.Price,
+                Quantity = dto.Quantity,
+                
+            };
+
+            // Chama serviço para criar
+            var created = _service.Create(product);
+
+            // Converte domínio para DTO de saída
+            var response = new ProductResponseDto
             {
-                _logger.Log($"Erro ao criar produto: {ex.Message}");
-                return BadRequest(new { error = ex.Message, timestamp = DateTime.UtcNow });
-            }
+                Id = created.Id,
+                Name = created.Name,
+                Description = created.Description,
+                Price = created.Price,
+                Quantity = created.Quantity,
+                Active = created.Active
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
         }
 
-        [HttpGet("{id}")]
-        public IActionResult GetById(string id)
-        {
-            try
-            {
-                var product = _service.GetById(id);
-                if (product == null)
-                {
-                    _logger.Log($"Produto não encontrado: {id}");
-                    return NotFound(new { error = "Produto não encontrado", timestamp = DateTime.UtcNow });
-                }
-
-                _logger.Log($"Produto consultado: {id}");
-                return Ok(product);
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"Erro ao buscar produto {id}: {ex.Message}");
-                return BadRequest(new { error = ex.Message, timestamp = DateTime.UtcNow });
-            }
-        }
-
+       
+        // Listar todos produtos
+        
         [HttpGet]
-        public IActionResult GetAll()
+        public ActionResult<List<ProductResponseDto>> GetAll()
         {
-            try
+            var products = _service.GetAll();
+
+            var response = products.Select(p => new ProductResponseDto
             {
-                var products = _service.GetAll();
-                _logger.Log($"Consulta de todos os produtos ({products.Count})");
-                return Ok(products);
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"Erro ao listar produtos: {ex.Message}");
-                return BadRequest(new { error = ex.Message, timestamp = DateTime.UtcNow });
-            }
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Price = p.Price,
+                Quantity = p.Quantity,
+                Active = p.Active
+            }).ToList();
+
+            return Ok(response);
         }
 
-        [HttpDelete("{id}")]
-        public IActionResult Delete(string id)
+        // Buscar produto por ID
+       
+        [HttpGet("{id}")]
+        public ActionResult<ProductResponseDto> GetById(string id)
         {
-            try
+            var product = _service.GetById(id);
+            if (product == null) return NotFound();
+
+            var response = new ProductResponseDto
             {
-                _service.Delete(id);
-                _logger.Log($"Produto removido: {id}");
-                return Ok(new { message = "Produto removido permanentemente", timestamp = DateTime.UtcNow });
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"Erro ao remover produto {id}: {ex.Message}");
-                return BadRequest(new { error = ex.Message, timestamp = DateTime.UtcNow });
-            }
+                Id = product.Id,
+                Name = product.Name,
+                Description = product.Description,
+                Price = product.Price,
+                Quantity = product.Quantity,
+                Active = product.Active
+            };
+
+            return Ok(response);
         }
 
+       
+        // Atualizar nome e descrição
+        
         [HttpPut("{id}")]
-        public IActionResult UpdateProd(string id, [FromBody] Product body)
+        public ActionResult<ProductResponseDto> UpdateProd(string id, [FromBody] CreateProductDto dto)
         {
             try
             {
-                _service.UpdateProd(id, body.Name, body.Description);
-                _logger.Log($"Produto atualizado (nome/descrição): {id}");
-                return Ok(new { message = "Produto atualizado", timestamp = DateTime.UtcNow });
+                var updated = _service.UpdateProd(id, dto.Name, dto.Description);
+
+                var response = new ProductResponseDto
+                {
+                    Id = updated.Id,
+                    Name = updated.Name,
+                    Description = updated.Description,
+                    Price = updated.Price,
+                    Quantity = updated.Quantity,
+                    Active = updated.Active
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.Log($"Erro ao atualizar produto {id}: {ex.Message}");
-                return BadRequest(new { error = ex.Message, timestamp = DateTime.UtcNow });
+                return BadRequest(ex.Message);
             }
         }
 
+        // Atualizar preço
+       
         [HttpPatch("{id}/price")]
-        public IActionResult UpdatePrice(string id, [FromBody] decimal price)
+        public ActionResult<ProductResponseDto> UpdatePrice(string id, [FromBody] decimal price)
         {
             try
             {
-                _service.UpdatePrice(id, price);
-                _logger.Log($"Preço do produto atualizado: {id} -> {price}");
-                return Ok(new { message = "Preço atualizado", timestamp = DateTime.UtcNow });
+                var updated = _service.UpdatePrice(id, price);
+
+                var response = new ProductResponseDto
+                {
+                    Id = updated.Id,
+                    Name = updated.Name,
+                    Description = updated.Description,
+                    Price = updated.Price,
+                    Quantity = updated.Quantity,
+                    Active = updated.Active
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.Log($"Erro ao atualizar preço do produto {id}: {ex.Message}");
-                return BadRequest(new { error = ex.Message, timestamp = DateTime.UtcNow });
+                return BadRequest(ex.Message);
             }
         }
 
+        // Atualizar quantidade
+        
         [HttpPatch("{id}/quantity")]
-        public IActionResult UpdateQuantity(string id, [FromBody] int quantity)
+        public ActionResult<ProductResponseDto> UpdateQuantity(string id, [FromBody] int quantity)
         {
             try
             {
-                _service.UpdateQuantity(id, quantity);
-                _logger.Log($"Quantidade do produto atualizada: {id} -> {quantity}");
-                return Ok(new { message = "Estoque atualizado", timestamp = DateTime.UtcNow });
+                var updated = _service.UpdateQuantity(id, quantity);
+
+                var response = new ProductResponseDto
+                {
+                    Id = updated.Id,
+                    Name = updated.Name,
+                    Description = updated.Description,
+                    Price = updated.Price,
+                    Quantity = updated.Quantity,
+                    Active = updated.Active
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.Log($"Erro ao atualizar estoque do produto {id}: {ex.Message}");
-                return BadRequest(new { error = ex.Message, timestamp = DateTime.UtcNow });
+                return BadRequest(ex.Message);
             }
         }
 
+       
+        // Inativar produto
+       
         [HttpPatch("{id}/inactivate")]
         public IActionResult Inactivate(string id)
         {
             try
             {
                 _service.Inactivate(id);
-                _logger.Log($"Produto inativado: {id}");
-                return Ok(new { message = "Produto inativado", timestamp = DateTime.UtcNow });
+                return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.Log($"Erro ao inativar produto {id}: {ex.Message}");
-                return BadRequest(new { error = ex.Message, timestamp = DateTime.UtcNow });
+                return BadRequest(ex.Message);
+            }
+        }
+
+    
+        // Deletar produto
+        
+        [HttpDelete("{id}")]
+        public IActionResult Delete(string id)
+        {
+            try
+            {
+                _service.Delete(id);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
             }
         }
     }
 }
+
+//DTOs apenas na borda da API (entrada e saída).
+// Controller converte DTO ↔ Domain e vice-versa.
+// DTO na Controller: obrigatório, porque a Controller é a borda que fala com o cliente.

@@ -1,57 +1,63 @@
 using ClientService.Storage;
 using ClientService.Service;
 using ClientService.Logging;
+using DotNetEnv;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// LoggerService duplo docker (logs em memória)  Local (logs em arquivo + memória)
+// 🔹 Carrega .env localmente (fora do container)
+Env.Load("/home/mariadantas/plataforma-tcc/.env");
 
-
-// Detecta se está rodando dentro do container
+// 🔹 Detecta se está rodando no Docker
 bool isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
 
-LoggerService logger;
-if (isDocker)
+// 🔹 Pega as variáveis do ambiente
+var host = isDocker ? "client-db" : Environment.GetEnvironmentVariable("CLIENT_DB_HOST");
+var port = isDocker ? "5432" : Environment.GetEnvironmentVariable("CLIENT_DB_PORT");
+var user = Environment.GetEnvironmentVariable("CLIENT_DB_USER");
+var password = Environment.GetEnvironmentVariable("CLIENT_DB_PASSWORD");
+var database = Environment.GetEnvironmentVariable("CLIENT_DB_NAME");
+
+// 🔹 Monta connection string diretamente
+var connectionString = $"Host={host};Port={port};Username={user};Password={password};Database={database}";
+
+// 🔹 Logger
+LoggerService logger = isDocker 
+    ? new LoggerService("/app/Logs/logfile.log")
+    : new LoggerService("logs/client-logs.txt");
+
+// 🔹 Teste rápido de conexão
+try
 {
-
-    logger = new LoggerService();
+    using var conn = new NpgsqlConnection(connectionString);
+    conn.Open();
+    Console.WriteLine("✅ Conexão com o banco OK!");
 }
-else
+catch (Exception ex)
 {
-    logger = new LoggerService("logs/client-logs.txt");
+    Console.WriteLine($"❌ Erro ao conectar com o banco: {ex.Message}");
 }
 
-
-// Pega a connection string do ambiente
-string connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-                          ?? throw new InvalidOperationException("Connection string não definida");
-
-// Injeção de dependência
-builder.Services.AddSingleton<IClientStorage>(new ClientStorage(connectionString));
+// 🔹 Injeção de dependências
+builder.Services.AddSingleton<IClientStorage>(new ClientStorage(connectionString, logger));
 builder.Services.AddScoped<IClientService, ClientService.Service.ClientService>();
 builder.Services.AddSingleton(logger);
 
-// Adiciona Swagger
+// 🔹 Swagger e Controllers
 builder.Services.AddSwaggerGen();
-
-// Adiciona Controllers
 builder.Services.AddControllers();
-
-// Expõe a aplicação na porta 80 dentro do container
 builder.WebHost.UseUrls("http://0.0.0.0:80");
 
 var app = builder.Build();
 
-// Configura Swagger
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "ClientService API v1");
-    c.RoutePrefix = string.Empty; // Swagger na raiz: http://localhost:8000/
+    c.RoutePrefix = string.Empty;
 });
 
-// Configura autorização e rotas
 app.UseAuthorization();
 app.MapControllers();
-
 app.Run();

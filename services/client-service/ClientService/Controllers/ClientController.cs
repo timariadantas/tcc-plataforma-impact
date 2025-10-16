@@ -1,7 +1,10 @@
 using ClientService.Domain;
 using ClientService.Service;
-using Microsoft.AspNetCore.Mvc;
+using ClientService.DTO.Responses;
+using ClientService.DTO.Requests;
 using ClientService.Logging;
+using Microsoft.AspNetCore.Mvc;
+
 
 namespace ClientService.Controllers
 {
@@ -18,24 +21,44 @@ namespace ClientService.Controllers
             _logger = logger;
         }
 
-        // POST api/client
         [HttpPost]
-        public IActionResult Create(Client client)
+        public IActionResult Create([FromBody] CreateClientDto dto)
         {
             try
             {
-                _service.Create(client); // método síncrono no Service
+                // Converte DTO para Domain
+                var client = new Client
+                {
+                    Name = dto.Name,
+                    Surname = dto.Surname,
+                    Email = dto.Email,
+                    Birthdate = dto.Birthdate
+                };
+
+                _service.Create(client);
+
                 _logger.Log($"Cliente criado: {client.Name}, ID: {client.Id}");
-                return Ok(client);
+
+                // Converte Domain para Response DTO
+                var response = new ClientResponseDto
+                {
+                    Id = client.Id,
+                    Name = client.Name,
+                    Surname = client.Surname,
+                    Email = client.Email,
+                    Birthdate = client.Birthdate,
+                    Active = client.Active
+                };
+
+                return Ok(response);
             }
             catch (ArgumentException ex)
             {
                 _logger.Log($"Falha ao criar cliente: {ex.Message}");
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(new ErrorResponse { Message = ex.Message });
             }
         }
 
-        // GET api/client/{id}
         [HttpGet("{id}")]
         public IActionResult GetById(string id)
         {
@@ -48,8 +71,18 @@ namespace ClientService.Controllers
                     return NotFound(new { message = "Cliente não encontrado" });
                 }
 
-                _logger.Log($"Cliente consultado:  ID: {client.Id}");
-                return Ok(client);
+                var response = new ClientResponseDto
+                {
+                    Id = client.Id,
+                    Name = client.Name,
+                    Surname = client.Surname,
+                    Email = client.Email,
+                    Birthdate = client.Birthdate,
+                    Active = client.Active
+                };
+
+                _logger.Log($"Cliente consultado: ID: {client.Id}");
+                return Ok(response);
             }
             catch (Exception ex)
             {
@@ -58,66 +91,105 @@ namespace ClientService.Controllers
             }
         }
 
-        // GET api/client
         [HttpGet]
         public IActionResult GetAll()
         {
             try
             {
                 var clients = _service.GetAll();
-                _logger.Log($"Consulta de todos os clientes realizada. Total: {clients.Count}");
-                return Ok(clients);
+                _logger.Log($"Clientes recuperados: {clients.Count}");
+
+                var response = clients.Select(client =>
+                {
+                    _logger.Log($"Mapeando cliente: {client.Id}");
+                    return new ClientResponseDto
+                    {
+                        Id = client.Id,
+                        Name = client.Name,
+                        Surname = client.Surname,
+                        Email = client.Email,
+                        Birthdate = client.Birthdate,
+                        Active = client.Active
+                    };
+                }).ToList();
+
+                _logger.Log("Mapeamento completo de todos os clientes.");
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.Log($"Erro ao consultar todos os clientes: {ex.Message}");
-                return StatusCode(500, new { message = "Erro interno" });
+                _logger.Log($"Erro no GetAll: {ex.GetType().Name} - {ex.Message}");
+                _logger.Log(ex.StackTrace ?? "Sem stack trace");
+                 return StatusCode(500, new ErrorResponse { Message = "Erro interno" });
             }
-        }
-
-        // PUT api/client/{id}
+            }
+        
+    
         [HttpPut("{id}")]
-        public IActionResult Update(string id, [FromBody] Client client)
+        public IActionResult Update(string id, [FromBody] UpdateClientDto dto)
         {
             try
             {
-                 client.Id = id;
+                var client = new Client
+                {
+                    Id = id,
+                    Name = dto.Name,
+                    Surname = dto.Surname,
+                    Email = dto.Email,
+                    Birthdate = dto.Birthdate,
+                    Active = dto.Active
+                };
+
                 _service.Update(client);
-                _logger.Log($"Cliente atualizado: {client.Name}, ID: {id}");
-                return Ok(client);
+
+                var response = new ClientResponseDto
+                {
+                    Id = client.Id,
+                    Name = client.Name,
+                    Surname = client.Surname,
+                    Email = client.Email,
+                    Birthdate = client.Birthdate,
+                    CreatedAt = client.CreatedAt,
+                    UpdatedAt = client.UpdatedAt,
+                    Active = client.Active
+                };
+
+                return Ok(response);
             }
             catch (ArgumentException ex)
             {
-                _logger.Log($"Falha ao atualizar cliente ID {id}: {ex.Message}");
-                return BadRequest(new { message = ex.Message });
+                _logger.Log($"Falha ao atualizar cliente: {ex.Message}");
+                return BadRequest(new ErrorResponse { Message = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.Log($"Erro ao atualizar cliente ID {id}: {ex.Message}");
-                return StatusCode(500, new { message = "Erro interno" });
+                return StatusCode(500, new ErrorResponse { Message = "Erro interno" });
             }
         }
 
-        // DELETE api/client/{id}
         [HttpDelete("{id}")]
+
         public IActionResult Delete(string id)
         {
             try
             {
-                _service.Delete(id);
+                _service.Delete(id); // aqui deve lançar exceção se não existe
+
                 _logger.Log($"Cliente deletado: ID {id}");
-                return NoContent();
+                return Ok(new DeleteResponseDto { Message = $"Cliente deletado com sucesso: ID {id}" });
             }
             catch (ArgumentException ex)
             {
                 _logger.Log($"Falha ao deletar cliente ID {id}: {ex.Message}");
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(new ErrorResponse { Message = ex.Message }); // <- usa ErrorResponse
             }
             catch (Exception ex)
             {
                 _logger.Log($"Erro ao deletar cliente ID {id}: {ex.Message}");
-                return StatusCode(500, new { message = "Erro interno" });
+                return StatusCode(500, new ErrorResponse { Message = "Erro interno" }); // usa ErrorResponse
             }
         }
+
     }
 }

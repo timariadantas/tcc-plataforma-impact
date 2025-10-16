@@ -1,7 +1,7 @@
-using System.Collections.Generic;
-using Npgsql;
-using NUlid;
 using ProductService.Domain;
+using Npgsql;
+using System;
+using System.Collections.Generic;
 
 namespace ProductService.Storage
 {
@@ -14,60 +14,33 @@ namespace ProductService.Storage
             _connectionString = connectionString;
         }
 
+        // CREATE
         public void Create(Product product)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             conn.Open();
 
             using var cmd = new NpgsqlCommand(@"
-                INSERT INTO products (id, name, description, price, quantity, created_at, updated_at, active)
-                VALUES (@id, @name, @description, @price, @quantity, @created_at, @updated_at, @active)", conn);
+                INSERT INTO products(name, description, price, quantity)
+                VALUES (@name, @description, @price, @quantity)
+                RETURNING id, created_at, updated_at, active", conn);
 
-            if (string.IsNullOrEmpty(product.Id))
-                product.Id = Ulid.NewUlid().ToString();
-
-            product.CreatedAt = DateTime.UtcNow;
-            product.UpdatedAt = DateTime.UtcNow;
-
-            cmd.Parameters.AddWithValue("id", product.Id);
             cmd.Parameters.AddWithValue("name", product.Name);
             cmd.Parameters.AddWithValue("description", product.Description);
             cmd.Parameters.AddWithValue("price", product.Price);
             cmd.Parameters.AddWithValue("quantity", product.Quantity);
-            cmd.Parameters.AddWithValue("created_at", product.CreatedAt);
-            cmd.Parameters.AddWithValue("updated_at", product.UpdatedAt);
-            cmd.Parameters.AddWithValue("active", product.Active);
 
-            cmd.ExecuteNonQuery();
-        }
-
-        public List<Product> GetAll()
-        {
-            var products = new List<Product>();
-            using var conn = new NpgsqlConnection(_connectionString);
-            conn.Open();
-
-            using var cmd = new NpgsqlCommand("SELECT * FROM products WHERE active = true", conn);
             using var reader = cmd.ExecuteReader();
-
-            while (reader.Read())
+            if (reader.Read())
             {
-                products.Add(new Product
-                {
-                    Id = reader.GetString(reader.GetOrdinal("id")),
-                    Name = reader.GetString(reader.GetOrdinal("name")),
-                    Description = reader.GetString(reader.GetOrdinal("description")),
-                    Price = reader.GetFloat(reader.GetOrdinal("price")),
-                    Quantity = reader.GetInt32(reader.GetOrdinal("quantity")),
-                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
-                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
-                    Active = reader.GetBoolean(reader.GetOrdinal("active"))
-                });
+                product.Id = reader.GetString(reader.GetOrdinal("id"));
+                product.CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at"));
+                product.UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at"));
+                product.Active = reader.GetBoolean(reader.GetOrdinal("active"));
             }
-
-            return products;
         }
 
+        // GET BY ID
         public Product? GetById(string id)
         {
             using var conn = new NpgsqlConnection(_connectionString);
@@ -84,14 +57,44 @@ namespace ProductService.Storage
                 Id = reader.GetString(reader.GetOrdinal("id")),
                 Name = reader.GetString(reader.GetOrdinal("name")),
                 Description = reader.GetString(reader.GetOrdinal("description")),
-                Price = reader.GetFloat(reader.GetOrdinal("price")),
+                Price = reader.GetDecimal(reader.GetOrdinal("price")),
                 Quantity = reader.GetInt32(reader.GetOrdinal("quantity")),
                 CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
                 UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
-                Active = reader.GetBoolean(reader.GetOrdinal("active"))
+                Active = reader.GetBoolean(reader.GetOrdinal("active")),
             };
         }
 
+        // GET ALL
+        public List<Product> GetAll()
+        {
+            var list = new List<Product>();
+
+            using var conn = new NpgsqlConnection(_connectionString);
+            conn.Open();
+
+            using var cmd = new NpgsqlCommand("SELECT * FROM products WHERE active = true", conn);
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                list.Add(new Product
+                {
+                    Id = reader.GetString(reader.GetOrdinal("id")),
+                    Name = reader.GetString(reader.GetOrdinal("name")),
+                    Description = reader.GetString(reader.GetOrdinal("description")),
+                    Price = reader.GetDecimal(reader.GetOrdinal("price")),
+                    Quantity = reader.GetInt32(reader.GetOrdinal("quantity")),
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+                    UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
+                    Active = reader.GetBoolean(reader.GetOrdinal("active")),
+                });
+            }
+
+            return list;
+        }
+
+        // DELETE
         public void Delete(string id)
         {
             using var conn = new NpgsqlConnection(_connectionString);
@@ -99,6 +102,28 @@ namespace ProductService.Storage
 
             using var cmd = new NpgsqlCommand("DELETE FROM products WHERE id = @id", conn);
             cmd.Parameters.AddWithValue("id", id);
+
+            cmd.ExecuteNonQuery();
+        }
+
+        // UPDATE
+        public void Update(Product product)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            conn.Open();
+
+            using var cmd = new NpgsqlCommand(@"
+                UPDATE products
+                SET name = @name, description = @description, price = @price, quantity = @quantity, active = @active
+                WHERE id = @id", conn);
+
+            cmd.Parameters.AddWithValue("id", product.Id);
+            cmd.Parameters.AddWithValue("name", product.Name);
+            cmd.Parameters.AddWithValue("description", product.Description);
+            cmd.Parameters.AddWithValue("price", product.Price);
+            cmd.Parameters.AddWithValue("quantity", product.Quantity);
+            cmd.Parameters.AddWithValue("active", product.Active);
+
             cmd.ExecuteNonQuery();
         }
 
@@ -107,12 +132,16 @@ namespace ProductService.Storage
             using var conn = new NpgsqlConnection(_connectionString);
             conn.Open();
 
-            var cmd = new NpgsqlCommand("UPDATE products SET name=@name, description=@description WHERE id=@id", conn);
+            using var cmd = new NpgsqlCommand(@"
+        UPDATE products
+        SET name = @name, description = @description, updated_at = NOW()
+        WHERE id = @id", conn);
+
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("name", name);
             cmd.Parameters.AddWithValue("description", description);
-            cmd.ExecuteNonQuery();
 
+            cmd.ExecuteNonQuery();
         }
 
         public void UpdatePrice(string id, decimal price)
@@ -120,9 +149,14 @@ namespace ProductService.Storage
             using var conn = new NpgsqlConnection(_connectionString);
             conn.Open();
 
-            var cmd = new NpgsqlCommand("UPDATE products SET price=@price WHERE id=@id", conn);
+            using var cmd = new NpgsqlCommand(@"
+        UPDATE products
+        SET price = @price, updated_at = NOW()
+        WHERE id = @id", conn);
+
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("price", price);
+
             cmd.ExecuteNonQuery();
         }
 
@@ -131,22 +165,31 @@ namespace ProductService.Storage
             using var conn = new NpgsqlConnection(_connectionString);
             conn.Open();
 
-            var cmd = new NpgsqlCommand("UPDATE products SET quantity=@quantity WHERE id=@id", conn);
+            using var cmd = new NpgsqlCommand(@"
+        UPDATE products
+        SET quantity = @quantity, updated_at = NOW()
+        WHERE id = @id", conn);
+
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("quantity", quantity);
+
             cmd.ExecuteNonQuery();
         }
-
 
         public void Inactivate(string id)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             conn.Open();
 
-            var cmd = new NpgsqlCommand("UPDATE products SET active=false WHERE id=@id", conn);
-            cmd.Parameters.AddWithValue("id", id);
-            cmd.ExecuteNonQuery();
+            using var cmd = new NpgsqlCommand(@"
+        UPDATE products
+        SET active = false, updated_at = NOW()
+        WHERE id = @id", conn);
 
+            cmd.Parameters.AddWithValue("id", id);
+
+            cmd.ExecuteNonQuery();
         }
+
     }
 }
