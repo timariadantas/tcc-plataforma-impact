@@ -11,46 +11,49 @@ Projeto desenvolvido como **TCC da Plataforma Impact**, simulando um ambiente re
 
 ---
 
+```mermaid
 flowchart TD
-    %% Estilo geral
-    classDef service fill:#f9f,stroke:#333,stroke-width:1px;
-    classDef db fill:#bbf,stroke:#333,stroke-width:1px;
-    classDef proxy fill:#fb8,stroke:#333,stroke-width:1px;
-    classDef test fill:#8f8,stroke:#333,stroke-width:1px;
+%% Estilo geral
+classDef service fill:#f9f,stroke:#333,stroke-width:1px;
+classDef db fill:#bbf,stroke:#333,stroke-width:1px;
+classDef proxy fill:#fb8,stroke:#333,stroke-width:1px;
+classDef test fill:#8f8,stroke:#333,stroke-width:1px;
 
-    %% Caddy como proxy
-    Caddy[("Caddy Reverse Proxy")]:::proxy
+%% Caddy como proxy
+Caddy[("Caddy Reverse Proxy")]:::proxy
 
-    %% Serviços
-    Client[("Client Service")]:::service
-    Product[("Product Service")]:::service
-    Cart[("Cart Service")]:::service
-    Currency[("Currency Service (In-Memory API)")]:::service
+%% Serviços
+Client[("Client Service")]:::service
+Product[("Product Service")]:::service
+Cart[("Cart Service")]:::service
+Currency[("Currency Service (In-Memory API)")]:::service
 
-    %% Bancos de dados
-    ClientDB[("Client DB")]:::db
-    ProductDB[("Product DB")]:::db
-    CartDB[("Cart DB")]:::db
+%% Bancos de dados
+ClientDB[("Client DB")]:::db
+ProductDB[("Product DB")]:::db
+CartDB[("Cart DB")]:::db
 
-    %% Testes
-    Tests[("Integration Tests (Docker)")]:::test
+%% Testes
+Tests[("Integration Tests (Docker)")]:::test
 
-    %% Conexões
-    Caddy --> Client
-    Caddy --> Product
-    Caddy --> Cart
-    Caddy --> Currency
+%% Conexões
+Caddy --> Client
+Caddy --> Product
+Caddy --> Cart
+Caddy --> Currency
 
-    Client --> ClientDB
-    Product --> ProductDB
-    Cart --> CartDB
-    Currency -.-> |"API em memória"| Currency
+Client --> ClientDB
+Product --> ProductDB
+Cart --> CartDB
+Currency -.-> |"API em memória"| Currency
 
-    Tests --> Client
-    Tests --> Product
-    Tests --> Cart
-    Tests --> Currency
+Tests --> Client
+Tests --> Product
+Tests --> Cart
+Tests --> Currency
 
+
+```
 
 ## 📂 Estrutura do Projeto
 
