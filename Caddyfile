@@ -1,6 +1,6 @@
 # Escuta na porta 80 (HTTP)
 http://0.0.0.0:80 {
-    encode gzip
+    encode gzip 
 
     # ClientService
     handle_path /api/client* {
