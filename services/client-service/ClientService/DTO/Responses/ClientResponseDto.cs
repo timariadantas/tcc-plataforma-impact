@@ -8,8 +8,8 @@ namespace ClientService.DTO.Responses
         public string Email { get; set; } = string.Empty;
         public DateTime Birthdate { get; set; }
         public bool Active { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; } = null;
+        public DateTime? UpdatedAt { get; set; } = null;
     }
 
 }
