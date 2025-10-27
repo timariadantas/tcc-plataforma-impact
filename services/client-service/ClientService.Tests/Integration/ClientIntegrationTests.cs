@@ -1,66 +1,47 @@
-using Xunit;
-using ClientService.Storage;
-using ClientService.Domain;
 using System;
-using System.IO;
-using DotNetEnv;
+using Xunit;
+using ClientService.Domain;
+using ClientService.Service;
+using ClientService.Controllers;
+using ClientService.DTO.Requests;
+using ClientService.DTO.Responses;
 using ClientService.Logging;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ClientService.IntegrationTests
 {
     public class ClientIntegrationTests
     {
-        private readonly ClientStorage _storage;
+        private readonly ClientController _controller;
 
         public ClientIntegrationTests()
-
         {
-            // 🔹 Carrega variáveis do .env (para rodar fora do container)
-            Env.Load("/home/mariadantas/plataforma-tcc/.env");
-
-            // Detecta se o teste está rodando dentro do container
-            bool runningInDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
-
-            // Configura host e porta dinamicamente
-            string host = runningInDocker 
-                ? "client-db" 
-                : Environment.GetEnvironmentVariable("CLIENT_DB_HOST");
-
-            string port = runningInDocker 
-                ? "5432" 
-                : Environment.GetEnvironmentVariable("CLIENT_DB_PORT");
-
-            string user = Environment.GetEnvironmentVariable("CLIENT_DB_USER");
-            string password = Environment.GetEnvironmentVariable("CLIENT_DB_PASSWORD");
-            string database = Environment.GetEnvironmentVariable("CLIENT_DB_NAME");
-
-            // Monta a connection string
-            string connectionString = $"Host={host};Port={port};Username={user};Password={password};Database={database}";
-
-            //  Cria o logger necessário para o ClientStorage
+            // Configura storage fake ou real (aqui usamos InMemory)
+            var storage = new ClientService.Tests.Factories.ClientFactoryInMemory();
+            var service = new ClientService.Service.ClientService(storage);
             var logger = new LoggerService();
 
-            _storage = new ClientStorage(connectionString , logger);
+            _controller = new ClientController(service, logger);
         }
 
         [Fact]
-        public void CreateClient_ShouldPersistInDatabase()
+        public void CreateClient_ShouldReturnApiResponse()
         {
-            // Arrange
-            var client = new Client
+            var dto = new CreateClientDto
             {
-                Name = "TestIntegration",
-                Surname = "User",
+                Name = "Integration",
+                Surname = "Test",
                 Email = "integration@test.com",
                 Birthdate = new DateTime(1990, 1, 1)
             };
 
-            // Act
-            _storage.Create(client);
-            var clients = _storage.GetAll();
+            var result = _controller.Create(dto);
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            var apiResponse = Assert.IsType<ApiResponse<ClientResponseDto>>(okResult.Value);
 
-            // Assert
-            Assert.Contains(clients, c => c.Email == "integration@test.com");
+            Assert.Equal("Cliente criado com sucesso", apiResponse.Message);
+            Assert.NotNull(apiResponse.Data);
+            Assert.Equal("Integration", apiResponse.Data.Name);
         }
     }
 }
