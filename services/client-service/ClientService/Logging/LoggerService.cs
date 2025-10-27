@@ -27,17 +27,19 @@ namespace ClientService.Logging
             var logDir = Path.GetDirectoryName(_logFilePath);
             if (!string.IsNullOrEmpty(logDir) && !Directory.Exists(logDir))
                 Directory.CreateDirectory(logDir);
+
+            // Limpa o arquivo no início
             File.WriteAllText(_logFilePath, "");
 
             _logTask = Task.Run(ProcessQueueAsync);
         }
 
-        public void Log(string message)
+        // Método para log com nível
+        public void Log(string message, LogLevel level = LogLevel.INFO)
         {
-            string timestampedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
-            _logQueue.Enqueue(timestampedMessage);
-
-            // Se estiver usando arquivo, ele será gravado pela Task
+            string timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"); // ISO 8601 UTC
+            string logMessage = $"{timestamp}\t{level}\t{message}";
+            _logQueue.Enqueue(logMessage);
         }
 
         private async Task ProcessQueueAsync()
@@ -48,7 +50,7 @@ namespace ClientService.Logging
                 {
                     if (!string.IsNullOrEmpty(_logFilePath))
                     {
-                        await File.AppendAllTextAsync(_logFilePath, logMessage + Environment.NewLine);
+                        await File.AppendAllTextAsync(_logFilePath, logMessage + "\n"); // LINEFEED
                     }
                 }
                 await Task.Delay(100);
