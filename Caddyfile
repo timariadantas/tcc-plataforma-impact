@@ -3,7 +3,7 @@ http://0.0.0.0:80 {
     encode gzip 
 
     # ClientService
-    handle_path /api/client* {
+    handle /clients* {
         reverse_proxy client-service:80
     }
 
