@@ -3,7 +3,6 @@ using CartService.Storage;
 using CartService.Domain;
 using CartService.Service;
 using CartService.Logging;
-using DotNetEnv;
 using System;
 using System.Linq;
 
@@ -17,21 +16,12 @@ namespace CartService.Tests.Integration
 
         public SaleIntegrationTests()
         {
-            // 🔹 Carrega variáveis do .env
-            Env.Load("/home/mariadantas/plataforma-tcc/.env");
-
-            // 🔹 Detecta se está rodando dentro do Docker
-            bool runningInDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
-
-            // 🔹 Configura host e porta dinamicamente
-            string host = runningInDocker ? "cart-db" : Environment.GetEnvironmentVariable("CART_DB_HOST");
-            string port = runningInDocker ? "5432" : Environment.GetEnvironmentVariable("CART_DB_PORT");
-            string user = Environment.GetEnvironmentVariable("CART_DB_USER");
-            string password = Environment.GetEnvironmentVariable("CART_DB_PASSWORD");
-            string database = Environment.GetEnvironmentVariable("CART_DB_NAME");
-
-            if (host == null || port == null || user == null || password == null || database == null)
-                throw new Exception("Variáveis de ambiente do banco não carregadas corretamente");
+            // 🔹 Detecta variáveis de ambiente do container
+            string host = Environment.GetEnvironmentVariable("CART_DB_HOST") ?? "cart-db";
+            string port = Environment.GetEnvironmentVariable("CART_DB_PORT") ?? "5432";
+            string user = Environment.GetEnvironmentVariable("CART_DB_USER") ?? throw new Exception("CART_DB_USER não definido");
+            string password = Environment.GetEnvironmentVariable("CART_DB_PASSWORD") ?? throw new Exception("CART_DB_PASSWORD não definido");
+            string database = Environment.GetEnvironmentVariable("CART_DB_NAME") ?? throw new Exception("CART_DB_NAME não definido");
 
             // 🔹 Monta a connection string
             var connectionString = $"Host={host};Port={port};Username={user};Password={password};Database={database}";
@@ -40,7 +30,7 @@ namespace CartService.Tests.Integration
             _storage = new SalesStorage(connectionString);
             _service = new SalesService(_storage);
 
-            // 🔹 Instancia Logger
+            // 🔹 Instancia Logger (pode gravar no volume de logs do container)
             _logger = new LoggerService("logs/cart-integration-tests.log");
         }
 
@@ -112,4 +102,3 @@ namespace CartService.Tests.Integration
         }
     }
 }
-
