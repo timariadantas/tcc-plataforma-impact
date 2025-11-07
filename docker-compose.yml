@@ -10,8 +10,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - CLIENT_DB_HOST=client-db
-      - CLIENT_DB_PORT=5432
+      - CLIENT_DB_HOST=${CLIENT_DB_HOST}
+      - CLIENT_DB_PORT=${CLIENT_DB_PORT}
       - CLIENT_DB_USER=${CLIENT_DB_USER}
       - CLIENT_DB_PASSWORD=${CLIENT_DB_PASSWORD}
       - CLIENT_DB_NAME=${CLIENT_DB_NAME}
@@ -28,8 +28,8 @@ services:
       POSTGRES_USER: ${CLIENT_DB_USER}
       POSTGRES_PASSWORD: ${CLIENT_DB_PASSWORD}
       POSTGRES_DB: ${CLIENT_DB_NAME}
-    ports:
-      - "5434:5432"
+    expose:
+      - ${CLIENT_DB_PORT}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./services/client-service/docker-initdb:/docker-entrypoint-initdb.d
@@ -41,6 +41,7 @@ services:
       start_period: 30s
     networks:
       - tcc-network
+    command: -p ${CLIENT_DB_PORT}
 
   # ProductService
   product-service:
@@ -55,8 +56,8 @@ services:
       - PRODUCT_DB_USER=${PRODUCT_DB_USER}
       - PRODUCT_DB_PASSWORD=${PRODUCT_DB_PASSWORD}
       - PRODUCT_DB_NAME=${PRODUCT_DB_NAME}
-      - PRODUCT_DB_HOST=product-db
-      - PRODUCT_DB_PORT=5432  
+      - PRODUCT_DB_HOST=${PRODUCT_DB_HOST}
+      - PRODUCT_DB_PORT=${PRODUCT_DB_PORT}
     depends_on:
       - product-db
     networks:
@@ -70,8 +71,8 @@ services:
       POSTGRES_USER: ${PRODUCT_DB_USER}
       POSTGRES_PASSWORD: ${PRODUCT_DB_PASSWORD}
       POSTGRES_DB: ${PRODUCT_DB_NAME}
-    ports:
-      - "5435:5432"
+    expose:
+      - ${PRODUCT_DB_PORT}
     volumes:
       - product_data:/var/lib/postgresql/data
       - ./services/product-service/docker-initdb:/docker-entrypoint-initdb.d
@@ -82,6 +83,7 @@ services:
       start_period: 10s
     networks:
       - tcc-network
+    command: -p ${PRODUCT_DB_PORT}
 
   # CurrencyService
   currency-service:
@@ -113,8 +115,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - DOTNET_RUNNING_IN_CONTAINER=true
-      - CART_DB_HOST=cart-db
-      - CART_DB_PORT=5432
+      - CART_DB_HOST=${CART_DB_HOST}
+      - CART_DB_PORT=${CART_DB_PORT}
       - CART_DB_USER=${CART_DB_USER}
       - CART_DB_PASSWORD=${CART_DB_PASSWORD}
       - CART_DB_NAME=${CART_DB_NAME}
@@ -131,8 +133,8 @@ services:
       POSTGRES_USER: ${CART_DB_USER}
       POSTGRES_PASSWORD: ${CART_DB_PASSWORD}
       POSTGRES_DB: ${CART_DB_NAME}
-    ports:
-      - "5436:5432"
+    expose:
+      - ${CART_DB_PORT}
     volumes:
       - cart_data:/var/lib/postgresql/data
       - ./services/cart-service/CartService/docker-initdb:/docker-entrypoint-initdb.d
@@ -143,7 +145,7 @@ services:
       start_period: 10s
     networks:
       - tcc-network
-
+    command: -p ${CART_DB_PORT}
   # Caddy reverse-proxy
   caddy:
     image: caddy:2
