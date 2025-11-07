@@ -1,28 +1,26 @@
-# Escuta na porta 80 (HTTP)
-http://0.0.0.0:80 {
-    encode gzip 
+:80 {
+    encode gzip
 
-    # ClientService
-    handle /clients* {
+handle /clients* {
         reverse_proxy client-service:80
     }
 
-    # ProductService
-    handle_path /api/products* {
+    handle /api/products* {
         reverse_proxy product-service:8080
     }
 
-    # CartService (Vendas)
-    handle_path /sales* {
+    handle /sales* {
         reverse_proxy cart-service:8080
     }
 
-    # CurrencyService
-    handle_path /api/currency* {
+    handle /api/currency* {
         reverse_proxy currency-service:5000
     }
 
-    # Logs do Caddy (opcional)
+    handle {
+        respond "Rota não encontrada no Caddy" 404
+    }
+
     log {
         output stdout
         format console
