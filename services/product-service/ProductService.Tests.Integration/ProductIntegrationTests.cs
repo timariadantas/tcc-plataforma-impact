@@ -12,7 +12,7 @@ namespace ProductService.IntegrationTests
     public class ProductIntegrationTests
     {
         private readonly ProductsService _service;
-        private readonly string _connectionString; // ✅ campo declarado aqui
+        private readonly string _connectionString; 
 
         public ProductIntegrationTests()
         {
@@ -28,11 +28,7 @@ namespace ProductService.IntegrationTests
             var database = Environment.GetEnvironmentVariable("PRODUCT_DB_NAME");
 
 
-            // Console.WriteLine($"DEBUG: HOST = {host}");
-            // Console.WriteLine($"DEBUG: PORT = {port}");
-            //Console.WriteLine($"DEBUG: USER = {user}");
-            //Console.WriteLine($"DEBUG: PASS = {password}");
-            //Console.WriteLine($"DEBUG: DB = {database}");
+          
 
             // Checa se alguma variável está null
             if (host == null || port == null || user == null || password == null || database == null)
@@ -42,11 +38,13 @@ namespace ProductService.IntegrationTests
 
             // Monta a connection string
             _connectionString = $"Host={host};Port={port};Username={user};Password={password};Database={database}";
-            // 🔹 Cria storage real
-            var storage = new ProductStorage(_connectionString);
+            //  Cria storage real
+            var storage = new ProductStorage(_connectionString, logger);
 
-            // 🔹 Logger simples
-            _service = new ProductsService(storage, new LoggerService());
+            logger.Log("Iniciando testes de integração com banco real", LogLevel.INFO);
+
+            //  Logger simples
+            _service = new ProductsService(storage, logger);
 
         }
 
