@@ -5,8 +5,8 @@ handle /clients* {
         reverse_proxy client-service:80
     }
 
-    handle /api/products* {
-        reverse_proxy product-service:8080
+    handle /products* {
+        reverse_proxy product-service:80
     }
 
     handle /sales* {
