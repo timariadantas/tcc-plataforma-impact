@@ -3,6 +3,7 @@ using ProductService.DTO.Requests;
 using ProductService.Service;
 using ProductService.Tests.Factories;
 using Xunit;
+using ProductService.Logging;
 
 namespace ProductService.Tests.Unit
 {
@@ -12,13 +13,15 @@ namespace ProductService.Tests.Unit
 
         public ProductServiceTests()
         {
-            // 🔹 Usa o storage em memória (não banco real)
+            //  Usa o storage em memória (não banco real)
             var factory = new ProductFactoryInMemory();
 
-            // 🔹 Logger simples (poderia ser fake/mocado em testes)
+            //  Logger simples (poderia ser fake/mocado em testes)
             var logger = new ProductService.Logging.LoggerService();
 
-            // 🔹 Instancia o serviço de produtos com storage + logger
+            logger.Log("Iniciando testes de unidade de ProductService", LogLevel.INFO);
+
+            //  Instancia o serviço de produtos com storage + logger
             _service = new ProductsService(factory, logger);
         }
 
