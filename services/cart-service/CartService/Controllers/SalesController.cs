@@ -4,7 +4,7 @@ using CartService.DTO.Requests;
 using CartService.DTO.Responses;
 using CartService.Domain;
 using CartService.Logging;
-using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace CartService.Controllers
 {
@@ -21,207 +21,288 @@ namespace CartService.Controllers
             _logger = logger;
         }
 
-        // Criar uma venda
+        //  Criar uma venda
         [HttpPost]
         public IActionResult CreateSale([FromBody] SaleRequestDTO dto)
         {
-            _logger.Log($"[CreateSale] Iniciando criação da venda para cliente: {dto.ClientId}");
-            var sale = _salesService.CreateSale(dto.ClientId);
-            _logger.Log($"[CreateSale] Venda criada: {sale.Id} para cliente {sale.ClientId}");
+            var stopwatch = Stopwatch.StartNew();
+            var response = new ApiResponse<SaleResponseDTO>();
 
-            var response = new SaleResponseDTO
+            try
             {
-                Id = sale.Id,
-                ClientId = sale.ClientId,
-                Status = sale.Status,
-                CreatedAt = sale.CreatedAt,
-                UpdatedAt = sale.UpdatedAt,
-                Items = new List<SaleItemResponseDTO>()
-            };
+                _logger.Log($"[CreateSale] Iniciando criação da venda para cliente: {dto.ClientId}");
+                var sale = _salesService.CreateSale(dto.ClientId);
 
-            return Ok(new ApiResponse<SaleResponseDTO>
+                response.Data = new SaleResponseDTO
+                {
+                    Id = sale.Id,
+                    ClientId = sale.ClientId,
+                    Status = sale.Status,
+                    CreatedAt = sale.CreatedAt,
+                    UpdatedAt = sale.UpdatedAt,
+                    Items = new List<SaleItemResponseDTO>()
+                };
+
+                response.Message = "Venda criada com sucesso";
+            }
+            catch (Exception ex)
             {
-                Message = "Venda criada com sucesso",
-                Timestamp = DateTime.UtcNow,
-                Elapsed = 0,
-                Error = "",
-                Data = response
-            });
+                response.Message = "Erro ao criar venda";
+                response.Error = ex.Message;
+                _logger.Log($"[CreateSale][ERRO] {ex.Message}");
+                return StatusCode(500, response);
+            }
+            finally
+            {
+                stopwatch.Stop();
+                response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+                response.Timestamp = DateTime.UtcNow;
+            }
+
+            return Ok(response);
         }
 
-        // Adicionar item à venda
+        //  Adicionar item à venda
         [HttpPost("{saleId}/items")]
         public IActionResult AddItem(string saleId, [FromBody] SaleItemRequestDTO dto)
         {
-            _logger.Log($"[AddItem] Adicionando item {dto.ProductId} (qnt: {dto.Quantity}) à venda {saleId}");
-            _salesService.AddItem(saleId, dto.ProductId, dto.Quantity);
-            _logger.Log($"[AddItem] Item adicionado com sucesso à venda {saleId}");
+            var stopwatch = Stopwatch.StartNew();
+            var response = new ApiResponse<object>();
 
-            return Ok(new ApiResponse<object>
+            try
             {
-                Message = "Item adicionado com sucesso",
-                Timestamp = DateTime.UtcNow,
-                Elapsed = 0,
-                Error = "",
-                Data = null
-            });
+                _logger.Log($"[AddItem] Adicionando item {dto.ProductId} à venda {saleId}");
+                _salesService.AddItem(saleId, dto.ProductId, dto.Quantity);
+
+                response.Message = "Item adicionado com sucesso";
+            }
+            catch (Exception ex)
+            {
+                response.Message = "Erro ao adicionar item";
+                response.Error = ex.Message;
+                _logger.Log($"[AddItem][ERRO] {ex.Message}");
+                return StatusCode(500, response);
+            }
+            finally
+            {
+                stopwatch.Stop();
+                response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+                response.Timestamp = DateTime.UtcNow;
+            }
+
+            return Ok(response);
         }
 
-        // Alterar quantidade de item
+        //  Atualizar quantidade de item
         [HttpPut("items/{itemId}")]
         public IActionResult UpdateItemQuantity(string itemId, [FromBody] SaleItemRequestDTO dto)
         {
-            _logger.Log($"[UpdateItemQuantity] Atualizando quantidade do item {itemId} para {dto.Quantity}");
-            _salesService.UpdateItemQuantity(itemId, dto.Quantity);
-            _logger.Log($"[UpdateItemQuantity] Quantidade do item {itemId} atualizada com sucesso");
+            var stopwatch = Stopwatch.StartNew();
+            var response = new ApiResponse<object>();
 
-            return Ok(new ApiResponse<object>
+            try
             {
-                Message = "Quantidade atualizada com sucesso",
-                Timestamp = DateTime.UtcNow,
-                Elapsed = 0,
-                Error = "",
-                Data = null
-            });
+                _logger.Log($"[UpdateItemQuantity] Atualizando item {itemId} para {dto.Quantity}");
+                _salesService.UpdateItemQuantity(itemId, dto.Quantity);
+
+                response.Message = "Quantidade atualizada com sucesso";
+            }
+            catch (Exception ex)
+            {
+                response.Message = "Erro ao atualizar item";
+                response.Error = ex.Message;
+                _logger.Log($"[UpdateItemQuantity][ERRO] {ex.Message}");
+                return StatusCode(500, response);
+            }
+            finally
+            {
+                stopwatch.Stop();
+                response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+                response.Timestamp = DateTime.UtcNow;
+            }
+
+            return Ok(response);
         }
 
-        // Cancelar venda
+        //  Cancelar venda
         [HttpPut("{saleId}/cancel")]
         public IActionResult CancelSale(string saleId)
         {
-            _logger.Log($"[CancelSale] Cancelando venda {saleId}");
-            _salesService.CancelSale(saleId);
-            _logger.Log($"[CancelSale] Venda {saleId} cancelada com sucesso");
+            var stopwatch = Stopwatch.StartNew();
+            var response = new ApiResponse<object>();
 
-            return Ok(new ApiResponse<object>
+            try
             {
-                Message = "Venda cancelada com sucesso",
-                Timestamp = DateTime.UtcNow,
-                Elapsed = 0,
-                Error = "",
-                Data = null
-            });
+                _logger.Log($"[CancelSale] Cancelando venda {saleId}");
+                _salesService.CancelSale(saleId);
+                response.Message = "Venda cancelada com sucesso";
+            }
+            catch (Exception ex)
+            {
+                response.Message = "Erro ao cancelar venda";
+                response.Error = ex.Message;
+                _logger.Log($"[CancelSale][ERRO] {ex.Message}");
+                return StatusCode(500, response);
+            }
+            finally
+            {
+                stopwatch.Stop();
+                response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+                response.Timestamp = DateTime.UtcNow;
+            }
+
+            return Ok(response);
         }
 
-        // Consultar venda por ID
+        //  Consultar venda por ID
         [HttpGet("{saleId}")]
         public IActionResult GetSaleById(string saleId)
         {
-            _logger.Log($"[GetSaleById] Consultando venda {saleId}");
-            var sale = _salesService.GetSaleById(saleId);
+            var stopwatch = Stopwatch.StartNew();
+            var response = new ApiResponse<SaleResponseDTO>();
 
-            if (sale == null)
+            try
             {
-                _logger.Log($"[GetSaleById] Venda {saleId} não encontrada");
-                return NotFound(new ApiResponse<object>
+                _logger.Log($"[GetSaleById] Consultando venda {saleId}");
+                var sale = _salesService.GetSaleById(saleId);
+
+                if (sale == null)
                 {
-                    Message = "Venda não encontrada",
-                    Timestamp = DateTime.UtcNow,
-                    Elapsed = 0,
-                    Error = "NotFound",
-                    Data = null
-                });
+                    response.Message = "Venda não encontrada";
+                    response.Error = "NotFound";
+                    return NotFound(response);
+                }
+
+                response.Data = new SaleResponseDTO
+                {
+                    Id = sale.Id,
+                    ClientId = sale.ClientId,
+                    Status = sale.Status,
+                    CreatedAt = sale.CreatedAt,
+                    UpdatedAt = sale.UpdatedAt,
+                    Items = sale.Items.Select(i => new SaleItemResponseDTO
+                    {
+                        Id = i.Id,
+                        ProductId = i.ProductId,
+                        Quantity = i.Quantity,
+                        CreatedAt = i.CreatedAt,
+                        UpdatedAt = i.UpdatedAt
+                    }).ToList()
+                };
+
+                response.Message = "Venda encontrada com sucesso";
+            }
+            catch (Exception ex)
+            {
+                response.Message = "Erro ao consultar venda";
+                response.Error = ex.Message;
+                _logger.Log($"[GetSaleById][ERRO] {ex.Message}");
+                return StatusCode(500, response);
+            }
+            finally
+            {
+                stopwatch.Stop();
+                response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+                response.Timestamp = DateTime.UtcNow;
             }
 
-            var response = new SaleResponseDTO
-            {
-                Id = sale.Id,
-                ClientId = sale.ClientId,
-                Status = sale.Status,
-                CreatedAt = sale.CreatedAt,
-                UpdatedAt = sale.UpdatedAt,
-                Items = sale.Items.ConvertAll(i => new SaleItemResponseDTO
-                {
-                    Id = i.Id,
-                    ProductId = i.ProductId,
-                    Quantity = i.Quantity,
-                    CreatedAt = i.CreatedAt,
-                    UpdatedAt = i.UpdatedAt
-                })
-            };
-
-            _logger.Log($"[GetSaleById] Venda {saleId} encontrada com {sale.Items.Count} itens");
-
-            return Ok(new ApiResponse<SaleResponseDTO>
-            {
-                Message = "Venda encontrada",
-                Timestamp = DateTime.UtcNow,
-                Elapsed = 0,
-                Error = "",
-                Data = response
-            });
+            return Ok(response);
         }
 
-        // Consultar vendas por produto
+        //  Consultar vendas por produto
         [HttpGet("product/{productId}")]
         public IActionResult GetSalesByProduct(string productId)
         {
-            _logger.Log($"[GetSalesByProduct] Consultando vendas do produto {productId}");
-            var sales = _salesService.GetSalesByProduct(productId);
+            var stopwatch = Stopwatch.StartNew();
+            var response = new ApiResponse<List<SaleResponseDTO>>();
 
-            _logger.Log($"[GetSalesByProduct] {sales.Count} vendas encontradas para o produto {productId}");
-
-            var responseList = sales.ConvertAll(s => new SaleResponseDTO
+            try
             {
-                Id = s.Id,
-                ClientId = s.ClientId,
-                Status = s.Status,
-                CreatedAt = s.CreatedAt,
-                UpdatedAt = s.UpdatedAt,
-                Items = s.Items.ConvertAll(i => new SaleItemResponseDTO
+                _logger.Log($"[GetSalesByProduct] Consultando vendas do produto {productId}");
+                var sales = _salesService.GetSalesByProduct(productId);
+
+                response.Data = sales.Select(s => new SaleResponseDTO
                 {
-                    Id = i.Id,
-                    ProductId = i.ProductId,
-                    Quantity = i.Quantity,
-                    CreatedAt = i.CreatedAt,
-                    UpdatedAt = i.UpdatedAt
-                })
-            });
+                    Id = s.Id,
+                    ClientId = s.ClientId,
+                    Status = s.Status,
+                    CreatedAt = s.CreatedAt,
+                    UpdatedAt = s.UpdatedAt,
+                    Items = s.Items.Select(i => new SaleItemResponseDTO
+                    {
+                        Id = i.Id,
+                        ProductId = i.ProductId,
+                        Quantity = i.Quantity,
+                        CreatedAt = i.CreatedAt,
+                        UpdatedAt = i.UpdatedAt
+                    }).ToList()
+                }).ToList();
 
-            return Ok(new ApiResponse<List<SaleResponseDTO>>
+                response.Message = "Vendas do produto recuperadas com sucesso";
+            }
+            catch (Exception ex)
             {
-                Message = "Vendas retornadas",
-                Timestamp = DateTime.UtcNow,
-                Elapsed = 0,
-                Error = "",
-                Data = responseList
-            });
+                response.Message = "Erro ao consultar vendas do produto";
+                response.Error = ex.Message;
+                _logger.Log($"[GetSalesByProduct][ERRO] {ex.Message}");
+                return StatusCode(500, response);
+            }
+            finally
+            {
+                stopwatch.Stop();
+                response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+                response.Timestamp = DateTime.UtcNow;
+            }
+
+            return Ok(response);
         }
 
         // Consultar vendas por status
         [HttpGet("status/{status}")]
         public IActionResult GetSalesByStatus(int status)
         {
-            _logger.Log($"[GetSalesByStatus] Consultando vendas com status {status}");
-            var sales = _salesService.GetSalesByStatus(status);
+            var stopwatch = Stopwatch.StartNew();
+            var response = new ApiResponse<List<SaleResponseDTO>>();
 
-            _logger.Log($"[GetSalesByStatus] {sales.Count} vendas encontradas com status {status}");
-
-            var responseList = sales.ConvertAll(s => new SaleResponseDTO
+            try
             {
-                Id = s.Id,
-                ClientId = s.ClientId,
-                Status = s.Status,
-                CreatedAt = s.CreatedAt,
-                UpdatedAt = s.UpdatedAt,
-                Items = s.Items.ConvertAll(i => new SaleItemResponseDTO
+                _logger.Log($"[GetSalesByStatus] Consultando vendas com status {status}");
+                var sales = _salesService.GetSalesByStatus(status);
+
+                response.Data = sales.Select(s => new SaleResponseDTO
                 {
-                    Id = i.Id,
-                    ProductId = i.ProductId,
-                    Quantity = i.Quantity,
-                    CreatedAt = i.CreatedAt,
-                    UpdatedAt = i.UpdatedAt
-                })
-            });
+                    Id = s.Id,
+                    ClientId = s.ClientId,
+                    Status = s.Status,
+                    CreatedAt = s.CreatedAt,
+                    UpdatedAt = s.UpdatedAt,
+                    Items = s.Items.Select(i => new SaleItemResponseDTO
+                    {
+                        Id = i.Id,
+                        ProductId = i.ProductId,
+                        Quantity = i.Quantity,
+                        CreatedAt = i.CreatedAt,
+                        UpdatedAt = i.UpdatedAt
+                    }).ToList()
+                }).ToList();
 
-            return Ok(new ApiResponse<List<SaleResponseDTO>>
+                response.Message = "Vendas com status recuperadas com sucesso";
+            }
+            catch (Exception ex)
             {
-                Message = "Vendas retornadas",
-                Timestamp = DateTime.UtcNow,
-                Elapsed = 0,
-                Error = "",
-                Data = responseList
-            });
+                response.Message = "Erro ao consultar vendas por status";
+                response.Error = ex.Message;
+                _logger.Log($"[GetSalesByStatus][ERRO] {ex.Message}");
+                return StatusCode(500, response);
+            }
+            finally
+            {
+                stopwatch.Stop();
+                response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+                response.Timestamp = DateTime.UtcNow;
+            }
+
+            return Ok(response);
         }
     }
 }
