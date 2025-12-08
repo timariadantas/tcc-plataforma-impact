@@ -1,4 +1,5 @@
 using ProductService.Domain;
+using ProductService.Logging;
 using Npgsql;
 using System;
 using System.Collections.Generic;
@@ -8,10 +9,19 @@ namespace ProductService.Storage
     public class ProductStorage : IProductStorage
     {
         private readonly string _connectionString;
+        private readonly LoggerService? _logger;
 
+      
         public ProductStorage(string connectionString)
         {
             _connectionString = connectionString;
+        }
+
+        // Construtor com logger
+        public ProductStorage(string connectionString, LoggerService logger)
+        {
+            _connectionString = connectionString;
+            _logger = logger;
         }
 
         // CREATE
@@ -38,6 +48,8 @@ namespace ProductService.Storage
                 product.UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at"));
                 product.Active = reader.GetBoolean(reader.GetOrdinal("active"));
             }
+
+            _logger?.Log($"[ProductStorage] Produto criado: {product.Name} ({product.Id})");
         }
 
         // GET BY ID
@@ -52,7 +64,7 @@ namespace ProductService.Storage
             using var reader = cmd.ExecuteReader();
             if (!reader.Read()) return null;
 
-            return new Product
+            var product = new Product
             {
                 Id = reader.GetString(reader.GetOrdinal("id")),
                 Name = reader.GetString(reader.GetOrdinal("name")),
@@ -63,6 +75,10 @@ namespace ProductService.Storage
                 UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
                 Active = reader.GetBoolean(reader.GetOrdinal("active")),
             };
+
+            _logger?.Log($"[ProductStorage] Produto lido: {product.Name} ({product.Id})");
+
+            return product;
         }
 
         // GET ALL
@@ -91,6 +107,8 @@ namespace ProductService.Storage
                 });
             }
 
+            _logger?.Log($"[ProductStorage] {list.Count} produtos carregados");
+
             return list;
         }
 
@@ -104,44 +122,26 @@ namespace ProductService.Storage
             cmd.Parameters.AddWithValue("id", id);
 
             cmd.ExecuteNonQuery();
+            _logger?.Log($"[ProductStorage] Produto deletado: {id}");
         }
 
-        // UPDATE
-        public void Update(Product product)
-        {
-            using var conn = new NpgsqlConnection(_connectionString);
-            conn.Open();
-
-            using var cmd = new NpgsqlCommand(@"
-                UPDATE products
-                SET name = @name, description = @description, price = @price, quantity = @quantity, active = @active
-                WHERE id = @id", conn);
-
-            cmd.Parameters.AddWithValue("id", product.Id);
-            cmd.Parameters.AddWithValue("name", product.Name);
-            cmd.Parameters.AddWithValue("description", product.Description);
-            cmd.Parameters.AddWithValue("price", product.Price);
-            cmd.Parameters.AddWithValue("quantity", product.Quantity);
-            cmd.Parameters.AddWithValue("active", product.Active);
-
-            cmd.ExecuteNonQuery();
-        }
-
+        // UPDATE (genérico)
         public void UpdateProd(string id, string name, string description)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             conn.Open();
 
             using var cmd = new NpgsqlCommand(@"
-        UPDATE products
-        SET name = @name, description = @description, updated_at = NOW()
-        WHERE id = @id", conn);
+                UPDATE products
+                SET name = @name, description = @description, updated_at = NOW()
+                WHERE id = @id", conn);
 
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("name", name);
             cmd.Parameters.AddWithValue("description", description);
 
             cmd.ExecuteNonQuery();
+            _logger?.Log($"[ProductStorage] Produto atualizado: {id} -> {name}");
         }
 
         public void UpdatePrice(string id, decimal price)
@@ -150,14 +150,15 @@ namespace ProductService.Storage
             conn.Open();
 
             using var cmd = new NpgsqlCommand(@"
-        UPDATE products
-        SET price = @price, updated_at = NOW()
-        WHERE id = @id", conn);
+                UPDATE products
+                SET price = @price, updated_at = NOW()
+                WHERE id = @id", conn);
 
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("price", price);
 
             cmd.ExecuteNonQuery();
+            _logger?.Log($"[ProductStorage] Preço atualizado: {id} -> {price}");
         }
 
         public void UpdateQuantity(string id, int quantity)
@@ -166,14 +167,15 @@ namespace ProductService.Storage
             conn.Open();
 
             using var cmd = new NpgsqlCommand(@"
-        UPDATE products
-        SET quantity = @quantity, updated_at = NOW()
-        WHERE id = @id", conn);
+                UPDATE products
+                SET quantity = @quantity, updated_at = NOW()
+                WHERE id = @id", conn);
 
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("quantity", quantity);
 
             cmd.ExecuteNonQuery();
+            _logger?.Log($"[ProductStorage] Quantidade atualizada: {id} -> {quantity}");
         }
 
         public void Inactivate(string id)
@@ -182,14 +184,14 @@ namespace ProductService.Storage
             conn.Open();
 
             using var cmd = new NpgsqlCommand(@"
-        UPDATE products
-        SET active = false, updated_at = NOW()
-        WHERE id = @id", conn);
+                UPDATE products
+                SET active = false, updated_at = NOW()
+                WHERE id = @id", conn);
 
             cmd.Parameters.AddWithValue("id", id);
 
             cmd.ExecuteNonQuery();
+            _logger?.Log($"[ProductStorage] Produto inativado: {id}");
         }
-
     }
 }
