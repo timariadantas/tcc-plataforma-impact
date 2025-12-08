@@ -5,47 +5,36 @@ using DotNetEnv;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 🔹 Carrega variáveis do .env (fora do container)
-Env.Load("/home/mariadantas/plataforma-tcc/.env");
+// Carrega variáveis do ambiente (.env)
+DotNetEnv.Env.Load();
 
-// 🔹 Detecta se está rodando dentro do container
-bool isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+// Connection string
+var configuration = builder.Configuration;
+var connectionString = $"Host={configuration["CART_DB_HOST"]};Port={configuration["CART_DB_PORT"]};Username={configuration["CART_DB_USER"]};Password={configuration["CART_DB_PASSWORD"]};Database={configuration["CART_DB_NAME"]}";
 
-// 🔹 Monta host e porta conforme ambiente
-var host = isDocker ? "cart-db" : Environment.GetEnvironmentVariable("CART_DB_HOST");
-var port = isDocker ? "5432" : Environment.GetEnvironmentVariable("CART_DB_PORT");
-var user = Environment.GetEnvironmentVariable("CART_DB_USER");
-var password = Environment.GetEnvironmentVariable("CART_DB_PASSWORD");
-var database = Environment.GetEnvironmentVariable("CART_DB_NAME");
+// Logger
+var logger = new LoggerService("/app/Logs/cart-logfile.log");
 
-// 🔹 Monta connection string
-string connectionString = $"Host={host};Port={port};Username={user};Password={password};Database={database}";
-
-// 🔹 Configura LoggerService
-LoggerService logger = isDocker
-    ? new LoggerService()                   // logs apenas em memória (Docker)
-    : new LoggerService("logs/cart-logs.txt"); // logs em arquivo local
-
-// 🔹 Injeção de dependência
+// Injeção de dependências
+builder.Services.AddSingleton(logger); // logger
 builder.Services.AddSingleton<ISalesStorage>(new SalesStorage(connectionString));
 builder.Services.AddScoped<ISalesService, SalesService>();
-builder.Services.AddSingleton(logger);
 
-// 🔹 Swagger e Controllers
+// Swagger e Controllers
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
-builder.WebHost.UseUrls("http://0.0.0.0:8080"); // Porta do container
+builder.WebHost.UseUrls("http://0.0.0.0:80");
 
 var app = builder.Build();
 
-// 🔹 Configura Swagger
+app.UseRouting();
+app.UseAuthorization();
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "CartService API v1");
-    c.RoutePrefix = string.Empty;
+    c.RoutePrefix = "swagger/cart";
 });
 
-app.UseAuthorization();
 app.MapControllers();
 app.Run();
