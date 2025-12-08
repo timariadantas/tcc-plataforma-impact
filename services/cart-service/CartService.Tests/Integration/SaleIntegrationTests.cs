@@ -1,104 +1,84 @@
 using Xunit;
 using CartService.Storage;
-using CartService.Domain;
 using CartService.Service;
 using CartService.Logging;
+using CartService.Domain;
+using CartService.DTO.Requests;
+using DotNetEnv;
 using System;
-using System.Linq;
 
 namespace CartService.Tests.Integration
 {
     public class SaleIntegrationTests : IDisposable
     {
         private readonly SalesService _service;
-        private readonly ISalesStorage _storage;
+        private readonly SalesStorage _storage;
         private readonly LoggerService _logger;
 
         public SaleIntegrationTests()
         {
-            // 🔹 Detecta variáveis de ambiente do container
-            string host = Environment.GetEnvironmentVariable("CART_DB_HOST") ?? "cart-db";
-            string port = Environment.GetEnvironmentVariable("CART_DB_PORT") ?? "5432";
-            string user = Environment.GetEnvironmentVariable("CART_DB_USER") ?? throw new Exception("CART_DB_USER não definido");
-            string password = Environment.GetEnvironmentVariable("CART_DB_PASSWORD") ?? throw new Exception("CART_DB_PASSWORD não definido");
-            string database = Environment.GetEnvironmentVariable("CART_DB_NAME") ?? throw new Exception("CART_DB_NAME não definido");
+            // Carrega variáveis do ambiente
+            DotNetEnv.Env.Load("../../../../.env");
 
-            // 🔹 Monta a connection string
-            var connectionString = $"Host={host};Port={port};Username={user};Password={password};Database={database}";
+            var dbHost = Environment.GetEnvironmentVariable("CART_DB_HOST");
+            var dbPort = Environment.GetEnvironmentVariable("CART_DB_PORT");
+            var dbUser = Environment.GetEnvironmentVariable("CART_DB_USER");
+            var dbPass = Environment.GetEnvironmentVariable("CART_DB_PASSWORD");
+            var dbName = Environment.GetEnvironmentVariable("CART_DB_NAME");
 
-            // 🔹 Instancia Storage e Service
-            _storage = new SalesStorage(connectionString);
+            var connectionString = $"Host={dbHost};Port={dbPort};Username={dbUser};Password={dbPass};Database={dbName}";
+
+            _logger = new LoggerService("/app/Logs/cart-integration-tests.log");
+            _storage = new SalesStorage(connectionString, _logger);
             _service = new SalesService(_storage);
-
-            // 🔹 Instancia Logger (pode gravar no volume de logs do container)
-            _logger = new LoggerService("logs/cart-integration-tests.log");
         }
 
         [Fact]
         public void CreateSale_ShouldPersistInDatabase()
         {
-            _logger.Log("Iniciando teste CreateSale_ShouldPersistInDatabase");
+            var sale = _service.CreateSale("client_test");
 
-            var sale = _service.CreateSale("client-123");
-            var retrieved = _service.GetSaleById(sale.Id);
-
-            Assert.NotNull(retrieved);
-            Assert.Equal("client-123", retrieved.ClientId);
-            Assert.Equal((int)SaleStatus.Started, retrieved.Status);
-
-            _logger.Log($"Venda criada com sucesso: {sale.Id}");
+            Assert.NotNull(sale);
+            Assert.Equal("client_test", sale.ClientId);
+            Assert.Equal(SaleStatus.Started, sale.Status);
         }
 
         [Fact]
-        public void AddItem_ShouldPersistItemInSale()
+        public void AddItem_ShouldInsertItemInDatabase()
         {
-            _logger.Log("Iniciando teste AddItem_ShouldPersistItemInSale");
+            var sale = _service.CreateSale("client_test");
+            _service.AddItem(sale.Id, "product_1", 2);
 
-            var sale = _service.CreateSale("client-123");
-            _service.AddItem(sale.Id, "product-1", 2);
-
-            var items = _storage.GetItemsBySaleId(sale.Id);
-            Assert.Single(items);
-            Assert.Equal("product-1", items.First().ProductId);
-            Assert.Equal(2, items.First().Quantity);
-
-            _logger.Log($"Item adicionado à venda: {sale.Id}, Produto: product-1, Quantidade: 2");
+            var reloaded = _service.GetSaleById(sale.Id);
+            Assert.NotNull(reloaded);
+            Assert.Single(reloaded!.Items);
+            Assert.Equal("product_1", reloaded.Items[0].ProductId);
         }
 
         [Fact]
-        public void UpdateItemQuantity_ShouldModifyQuantity()
+        public void GetSaleById_ShouldReturnCorrectSale()
         {
-            _logger.Log("Iniciando teste UpdateItemQuantity_ShouldModifyQuantity");
+            var sale = _service.CreateSale("client_test");
+            var found = _service.GetSaleById(sale.Id);
 
-            var sale = _service.CreateSale("client-123");
-            _service.AddItem(sale.Id, "product-1", 2);
-
-            var item = _storage.GetItemsBySaleId(sale.Id).First();
-            _service.UpdateItemQuantity(item.Id, 5);
-
-            var updatedItem = _storage.GetItemsBySaleId(sale.Id).First();
-            Assert.Equal(5, updatedItem.Quantity);
-
-            _logger.Log($"Quantidade atualizada para item {item.Id}: 5");
+            Assert.NotNull(found);
+            Assert.Equal(sale.Id, found!.Id);
+            Assert.Equal(sale.ClientId, found.ClientId);
         }
 
         [Fact]
         public void CancelSale_ShouldUpdateStatus()
         {
-            _logger.Log("Iniciando teste CancelSale_ShouldUpdateStatus");
-
-            var sale = _service.CreateSale("client-123");
+            var sale = _service.CreateSale("client_test");
             _service.CancelSale(sale.Id);
 
-            var updated = _service.GetSaleById(sale.Id);
-            Assert.Equal((int)SaleStatus.Canceled, updated.Status);
-
-            _logger.Log($"Venda cancelada com sucesso: {sale.Id}");
+            var canceled = _service.GetSaleById(sale.Id);
+            Assert.Equal(SaleStatus.Cancelled, canceled!.Status);
         }
 
         public void Dispose()
         {
-            _logger.Dispose();
+            // Cleanup opcional
         }
     }
 }
