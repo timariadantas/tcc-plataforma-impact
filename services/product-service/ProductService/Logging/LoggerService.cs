@@ -13,13 +13,11 @@ namespace ProductService.Logging
         private readonly CancellationTokenSource _cts = new();
         private readonly Task _logTask;
 
-        // Construtor para logs apenas em memória (Docker)
         public LoggerService()
         {
             _logTask = Task.Run(ProcessQueueAsync);
         }
 
-        // Construtor para logs em arquivo + memória (local)
         public LoggerService(string logFilePath)
         {
             _logFilePath = logFilePath;
@@ -32,9 +30,10 @@ namespace ProductService.Logging
             _logTask = Task.Run(ProcessQueueAsync);
         }
 
-        public void Log(string message)
+        // Agora recebe o LogLevel
+        public void Log(string message, LogLevel level = LogLevel.INFO)
         {
-            string timestampedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
+            string timestampedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{level}] {message}";
             _logQueue.Enqueue(timestampedMessage);
         }
 
