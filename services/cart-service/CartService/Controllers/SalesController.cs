@@ -1,10 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
+using CartService.Domain;
+
 using CartService.Service;
 using CartService.DTO.Requests;
 using CartService.DTO.Responses;
-using CartService.Domain;
 using CartService.Logging;
+using CartService.Mapper;
 using System.Diagnostics;
+using System.Linq;
+using CartService.Domain.Exceptions;
 
 namespace CartService.Controllers
 {
@@ -13,15 +17,15 @@ namespace CartService.Controllers
     public class SaleController : ControllerBase
     {
         private readonly ISalesService _salesService;
-        private readonly LoggerService _logger;
+        private readonly ILoggerService _logger;
 
-        public SaleController(ISalesService salesService, LoggerService logger)
+        public SaleController(ISalesService salesService, ILoggerService logger)
         {
             _salesService = salesService;
             _logger = logger;
         }
 
-        //  Criar uma venda
+        // Criar uma venda
         [HttpPost]
         public IActionResult CreateSale([FromBody] SaleRequestDTO dto)
         {
@@ -30,26 +34,51 @@ namespace CartService.Controllers
 
             try
             {
-                _logger.Log($"[CreateSale] Iniciando criação da venda para cliente: {dto.ClientId}");
-                var sale = _salesService.CreateSale(dto.ClientId);
+                _logger.LogInformation("[CreateSale] Iniciando criação da venda para cliente: {0}", dto.ClientId);
 
-                response.Data = new SaleResponseDTO
-                {
-                    Id = sale.Id,
-                    ClientId = sale.ClientId,
-                    Status = sale.Status,
-                    CreatedAt = sale.CreatedAt,
-                    UpdatedAt = sale.UpdatedAt,
-                    Items = new List<SaleItemResponseDTO>()
-                };
+        // Converte os DTOs de items para domain
+        List<SaleItem>? items = null;
+        if (dto.Items != null && dto.Items.Count > 0)
+        {
+            items = dto.Items.Select(i => new SaleItem
+            {
+                ProductId = i.ProductId,
+                Quantity = i.Quantity
+            }).ToList();
+        }
+                var sale = _salesService.CreateSale(dto.ClientId, items);
 
+                response.Data = SaleMapper.ToResponse(sale);
                 response.Message = "Venda criada com sucesso";
+
+                return Ok(response);
+            }
+            catch (DomainValidationException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "ValidationError";
+                _logger.LogWarning("[CreateSale][400] {0}", ex.Message);
+                return BadRequest(response);
+            }
+            catch (BusinessRuleException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "BusinessRule";
+                _logger.LogWarning("[CreateSale][422] {0}", ex.Message);
+                return StatusCode(422, response);
+            }
+            catch (NotFoundException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "NotFound";
+                _logger.LogWarning("[CreateSale][404] {0}", ex.Message);
+                return NotFound(response);
             }
             catch (Exception ex)
             {
                 response.Message = "Erro ao criar venda";
                 response.Error = ex.Message;
-                _logger.Log($"[CreateSale][ERRO] {ex.Message}");
+                _logger.LogError(ex, "[CreateSale][500] Erro inesperado criando venda for client {0}", dto.ClientId);
                 return StatusCode(500, response);
             }
             finally
@@ -58,11 +87,9 @@ namespace CartService.Controllers
                 response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
                 response.Timestamp = DateTime.UtcNow;
             }
-
-            return Ok(response);
         }
 
-        //  Adicionar item à venda
+        // Adicionar item à venda
         [HttpPost("{saleId}/items")]
         public IActionResult AddItem(string saleId, [FromBody] SaleItemRequestDTO dto)
         {
@@ -71,16 +98,38 @@ namespace CartService.Controllers
 
             try
             {
-                _logger.Log($"[AddItem] Adicionando item {dto.ProductId} à venda {saleId}");
+                _logger.LogInformation("[AddItem] Adicionando item {0} à venda {1} (qtd {2})", dto.ProductId, saleId, dto.Quantity);
                 _salesService.AddItem(saleId, dto.ProductId, dto.Quantity);
 
                 response.Message = "Item adicionado com sucesso";
+                return Ok(response);
+            }
+            catch (DomainValidationException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "ValidationError";
+                _logger.LogWarning("[AddItem][400] {0}", ex.Message);
+                return BadRequest(response);
+            }
+            catch (BusinessRuleException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "BusinessRule";
+                _logger.LogWarning("[AddItem][422] {0}", ex.Message);
+                return StatusCode(422, response);
+            }
+            catch (NotFoundException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "NotFound";
+                _logger.LogWarning("[AddItem][404] {0}", ex.Message);
+                return NotFound(response);
             }
             catch (Exception ex)
             {
                 response.Message = "Erro ao adicionar item";
                 response.Error = ex.Message;
-                _logger.Log($"[AddItem][ERRO] {ex.Message}");
+                _logger.LogError(ex, "[AddItem][500] Erro adicionando item {0} na venda {1}", dto.ProductId, saleId);
                 return StatusCode(500, response);
             }
             finally
@@ -89,11 +138,9 @@ namespace CartService.Controllers
                 response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
                 response.Timestamp = DateTime.UtcNow;
             }
-
-            return Ok(response);
         }
 
-        //  Atualizar quantidade de item
+        // Atualizar quantidade de item
         [HttpPut("items/{itemId}")]
         public IActionResult UpdateItemQuantity(string itemId, [FromBody] SaleItemRequestDTO dto)
         {
@@ -102,16 +149,38 @@ namespace CartService.Controllers
 
             try
             {
-                _logger.Log($"[UpdateItemQuantity] Atualizando item {itemId} para {dto.Quantity}");
+                _logger.LogInformation("[UpdateItemQuantity] Atualizando item {0} para {1}", itemId, dto.Quantity);
                 _salesService.UpdateItemQuantity(itemId, dto.Quantity);
 
                 response.Message = "Quantidade atualizada com sucesso";
+                return Ok(response);
+            }
+            catch (DomainValidationException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "ValidationError";
+                _logger.LogWarning("[UpdateItemQuantity][400] {0}", ex.Message);
+                return BadRequest(response);
+            }
+            catch (BusinessRuleException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "BusinessRule";
+                _logger.LogWarning("[UpdateItemQuantity][422] {0}", ex.Message);
+                return StatusCode(422, response);
+            }
+            catch (NotFoundException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "NotFound";
+                _logger.LogWarning("[UpdateItemQuantity][404] {0}", ex.Message);
+                return NotFound(response);
             }
             catch (Exception ex)
             {
                 response.Message = "Erro ao atualizar item";
                 response.Error = ex.Message;
-                _logger.Log($"[UpdateItemQuantity][ERRO] {ex.Message}");
+                _logger.LogError(ex, "[UpdateItemQuantity][500] Erro atualizando item {0}", itemId);
                 return StatusCode(500, response);
             }
             finally
@@ -120,11 +189,9 @@ namespace CartService.Controllers
                 response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
                 response.Timestamp = DateTime.UtcNow;
             }
-
-            return Ok(response);
         }
 
-        //  Cancelar venda
+        // Cancelar venda
         [HttpPut("{saleId}/cancel")]
         public IActionResult CancelSale(string saleId)
         {
@@ -133,15 +200,38 @@ namespace CartService.Controllers
 
             try
             {
-                _logger.Log($"[CancelSale] Cancelando venda {saleId}");
+                _logger.LogInformation("[CancelSale] Cancelando venda {0}", saleId);
                 _salesService.CancelSale(saleId);
+
                 response.Message = "Venda cancelada com sucesso";
+                return Ok(response);
+            }
+            catch (DomainValidationException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "ValidationError";
+                _logger.LogWarning("[CancelSale][400] {0}", ex.Message);
+                return BadRequest(response);
+            }
+            catch (BusinessRuleException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "BusinessRule";
+                _logger.LogWarning("[CancelSale][422] {0}", ex.Message);
+                return StatusCode(422, response);
+            }
+            catch (NotFoundException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "NotFound";
+                _logger.LogWarning("[CancelSale][404] {0}", ex.Message);
+                return NotFound(response);
             }
             catch (Exception ex)
             {
                 response.Message = "Erro ao cancelar venda";
                 response.Error = ex.Message;
-                _logger.Log($"[CancelSale][ERRO] {ex.Message}");
+                _logger.LogError(ex, "[CancelSale][500] Erro cancelando venda {0}", saleId);
                 return StatusCode(500, response);
             }
             finally
@@ -150,11 +240,9 @@ namespace CartService.Controllers
                 response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
                 response.Timestamp = DateTime.UtcNow;
             }
-
-            return Ok(response);
         }
 
-        //  Consultar venda por ID
+        // Consultar venda por ID
         [HttpGet("{saleId}")]
         public IActionResult GetSaleById(string saleId)
         {
@@ -163,40 +251,47 @@ namespace CartService.Controllers
 
             try
             {
-                _logger.Log($"[GetSaleById] Consultando venda {saleId}");
+                _logger.LogInformation("[GetSaleById] Consultando venda {0}", saleId);
                 var sale = _salesService.GetSaleById(saleId);
 
                 if (sale == null)
                 {
                     response.Message = "Venda não encontrada";
                     response.Error = "NotFound";
+                    _logger.LogWarning("[GetSaleById][404] Venda não encontrada: {0}", saleId);
                     return NotFound(response);
                 }
 
-                response.Data = new SaleResponseDTO
-                {
-                    Id = sale.Id,
-                    ClientId = sale.ClientId,
-                    Status = sale.Status,
-                    CreatedAt = sale.CreatedAt,
-                    UpdatedAt = sale.UpdatedAt,
-                    Items = sale.Items.Select(i => new SaleItemResponseDTO
-                    {
-                        Id = i.Id,
-                        ProductId = i.ProductId,
-                        Quantity = i.Quantity,
-                        CreatedAt = i.CreatedAt,
-                        UpdatedAt = i.UpdatedAt
-                    }).ToList()
-                };
-
+                response.Data = SaleMapper.ToResponse(sale);
                 response.Message = "Venda encontrada com sucesso";
+                return Ok(response);
+            }
+            catch (DomainValidationException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "ValidationError";
+                _logger.LogWarning("[GetSaleById][400] {0}", ex.Message);
+                return BadRequest(response);
+            }
+            catch (BusinessRuleException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "BusinessRule";
+                _logger.LogWarning("[GetSaleById][422] {0}", ex.Message);
+                return StatusCode(422, response);
+            }
+            catch (NotFoundException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "NotFound";
+                _logger.LogWarning("[GetSaleById][404] {0}", ex.Message);
+                return NotFound(response);
             }
             catch (Exception ex)
             {
                 response.Message = "Erro ao consultar venda";
                 response.Error = ex.Message;
-                _logger.Log($"[GetSaleById][ERRO] {ex.Message}");
+                _logger.LogError(ex, "[GetSaleById][500] Erro consultando venda {0}", saleId);
                 return StatusCode(500, response);
             }
             finally
@@ -205,11 +300,9 @@ namespace CartService.Controllers
                 response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
                 response.Timestamp = DateTime.UtcNow;
             }
-
-            return Ok(response);
         }
 
-        //  Consultar vendas por produto
+        // Consultar vendas por produto
         [HttpGet("product/{productId}")]
         public IActionResult GetSalesByProduct(string productId)
         {
@@ -218,33 +311,39 @@ namespace CartService.Controllers
 
             try
             {
-                _logger.Log($"[GetSalesByProduct] Consultando vendas do produto {productId}");
+                _logger.LogInformation("[GetSalesByProduct] Consultando vendas do produto {0}", productId);
                 var sales = _salesService.GetSalesByProduct(productId);
 
-                response.Data = sales.Select(s => new SaleResponseDTO
-                {
-                    Id = s.Id,
-                    ClientId = s.ClientId,
-                    Status = s.Status,
-                    CreatedAt = s.CreatedAt,
-                    UpdatedAt = s.UpdatedAt,
-                    Items = s.Items.Select(i => new SaleItemResponseDTO
-                    {
-                        Id = i.Id,
-                        ProductId = i.ProductId,
-                        Quantity = i.Quantity,
-                        CreatedAt = i.CreatedAt,
-                        UpdatedAt = i.UpdatedAt
-                    }).ToList()
-                }).ToList();
-
+                response.Data = sales.Select(SaleMapper.ToResponse).ToList();
                 response.Message = "Vendas do produto recuperadas com sucesso";
+                return Ok(response);
+            }
+            catch (DomainValidationException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "ValidationError";
+                _logger.LogWarning("[GetSalesByProduct][400] {0}", ex.Message);
+                return BadRequest(response);
+            }
+            catch (BusinessRuleException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "BusinessRule";
+                _logger.LogWarning("[GetSalesByProduct][422] {0}", ex.Message);
+                return StatusCode(422, response);
+            }
+            catch (NotFoundException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "NotFound";
+                _logger.LogWarning("[GetSalesByProduct][404] {0}", ex.Message);
+                return NotFound(response);
             }
             catch (Exception ex)
             {
                 response.Message = "Erro ao consultar vendas do produto";
                 response.Error = ex.Message;
-                _logger.Log($"[GetSalesByProduct][ERRO] {ex.Message}");
+                _logger.LogError(ex, "[GetSalesByProduct][500] Erro consultando vendas para product {0}", productId);
                 return StatusCode(500, response);
             }
             finally
@@ -253,8 +352,6 @@ namespace CartService.Controllers
                 response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
                 response.Timestamp = DateTime.UtcNow;
             }
-
-            return Ok(response);
         }
 
         // Consultar vendas por status
@@ -266,33 +363,39 @@ namespace CartService.Controllers
 
             try
             {
-                _logger.Log($"[GetSalesByStatus] Consultando vendas com status {status}");
+                _logger.LogInformation("[GetSalesByStatus] Consultando vendas com status {0}", status);
                 var sales = _salesService.GetSalesByStatus(status);
 
-                response.Data = sales.Select(s => new SaleResponseDTO
-                {
-                    Id = s.Id,
-                    ClientId = s.ClientId,
-                    Status = s.Status,
-                    CreatedAt = s.CreatedAt,
-                    UpdatedAt = s.UpdatedAt,
-                    Items = s.Items.Select(i => new SaleItemResponseDTO
-                    {
-                        Id = i.Id,
-                        ProductId = i.ProductId,
-                        Quantity = i.Quantity,
-                        CreatedAt = i.CreatedAt,
-                        UpdatedAt = i.UpdatedAt
-                    }).ToList()
-                }).ToList();
-
+                response.Data = sales.Select(SaleMapper.ToResponse).ToList();
                 response.Message = "Vendas com status recuperadas com sucesso";
+                return Ok(response);
+            }
+            catch (DomainValidationException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "ValidationError";
+                _logger.LogWarning("[GetSalesByStatus][400] {0}", ex.Message);
+                return BadRequest(response);
+            }
+            catch (BusinessRuleException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "BusinessRule";
+                _logger.LogWarning("[GetSalesByStatus][422] {0}", ex.Message);
+                return StatusCode(422, response);
+            }
+            catch (NotFoundException ex)
+            {
+                response.Message = ex.Message;
+                response.Error = "NotFound";
+                _logger.LogWarning("[GetSalesByStatus][404] {0}", ex.Message);
+                return NotFound(response);
             }
             catch (Exception ex)
             {
                 response.Message = "Erro ao consultar vendas por status";
                 response.Error = ex.Message;
-                _logger.Log($"[GetSalesByStatus][ERRO] {ex.Message}");
+                _logger.LogError(ex, "[GetSalesByStatus][500] Erro consultando vendas por status {0}", status);
                 return StatusCode(500, response);
             }
             finally
@@ -301,8 +404,7 @@ namespace CartService.Controllers
                 response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
                 response.Timestamp = DateTime.UtcNow;
             }
-
-            return Ok(response);
         }
     }
 }
+// O Controller deve NUNCA tocar no Id.
