@@ -1,9 +1,8 @@
--- Habilitar extensão para gerar valores aleatórios (necessário para ULID/hex)
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 
 -- Criar tabela sales
 CREATE TABLE IF NOT EXISTS sales (
-    id TEXT PRIMARY KEY DEFAULT encode(gen_random_bytes(16), 'hex'), -- ULID-like
+    id TEXT PRIMARY KEY ,
     client_id TEXT NOT NULL,
     status INT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -12,8 +11,8 @@ CREATE TABLE IF NOT EXISTS sales (
 
 -- Criar tabela sale_items
 CREATE TABLE IF NOT EXISTS sale_items (
-    id TEXT PRIMARY KEY DEFAULT encode(gen_random_bytes(16), 'hex'), -- ULID-like
-    sell_id TEXT NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY ,
+    sell_id TEXT NOT NULL REFERENCES sales(id) ON DELETE CASCADE,  -- relacionamento de 1-para-muitos /ON DELETE CASCADE exclui automaticamente os itens quando a venda é excluída.
     product_id TEXT NOT NULL,
     quantity INT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
