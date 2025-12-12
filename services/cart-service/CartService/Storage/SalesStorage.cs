@@ -18,28 +18,28 @@ public class SalesStorage : ISalesStorage
     {
         using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
-
         using var transaction = conn.BeginTransaction();
 
         try
         {
-
-            using var cmd = new NpgsqlCommand(@"
-                INSERT INTO sales(client_id, status)
-                VALUES (@client_id, @status)
-                RETURNING id, created_at, updated_at;", conn);
-
-            cmd.Parameters.AddWithValue("client_id", sale.ClientId);
-            cmd.Parameters.AddWithValue("status", sale.Status);
-
-            using var reader = cmd.ExecuteReader();
-            if (reader.Read())
+            // Inserir venda
+            using (var cmd = new NpgsqlCommand(@"
+            INSERT INTO sales(id, client_id, status, created_at, updated_at)
+            VALUES (@id, @client_id, @status, @created_at, @updated_at);
+        ", conn))
             {
-                sale.Id = reader.GetString(0);
-                sale.CreatedAt = reader.GetDateTime(1);
-                sale.UpdatedAt = reader.GetDateTime(2);
+                cmd.Transaction = transaction;
+                cmd.Parameters.AddWithValue("id", sale.Id);
+                cmd.Parameters.AddWithValue("client_id", sale.ClientId);
+                cmd.Parameters.AddWithValue("status", sale.Status);
+                cmd.Parameters.AddWithValue("created_at", sale.CreatedAt);
+                cmd.Parameters.AddWithValue("updated_at", sale.UpdatedAt);
+
+                cmd.ExecuteNonQuery();
             }
-            transaction.Commit();
+
+       //finalize a transação
+        transaction.Commit();
         }
         catch
         {
@@ -47,6 +47,8 @@ public class SalesStorage : ISalesStorage
             throw;
         }
     }
+
+
 
     public Sale? GetById(string id)
     {
@@ -98,40 +100,71 @@ public class SalesStorage : ISalesStorage
     }
 
     public void AddItem(SaleItem item)
+{
+    using var conn = new NpgsqlConnection(_connectionString);
+    conn.Open();
+
+    using var transaction = conn.BeginTransaction();
+
+    try
+    {
+        using var cmd = new NpgsqlCommand(@"
+            INSERT INTO sale_items(id, sell_id, product_id, quantity, created_at, updated_at)
+            VALUES (@id, @sell_id, @product_id, @quantity, @created_at, @updated_at);
+        ", conn);
+
+        cmd.Transaction = transaction;
+
+        cmd.Parameters.AddWithValue("id", item.Id);
+        cmd.Parameters.AddWithValue("sell_id", item.SellId);
+        cmd.Parameters.AddWithValue("product_id", item.ProductId);
+        cmd.Parameters.AddWithValue("quantity", item.Quantity);
+        cmd.Parameters.AddWithValue("created_at", item.CreatedAt);
+        cmd.Parameters.AddWithValue("updated_at", item.UpdatedAt);
+
+        cmd.ExecuteNonQuery();
+
+        transaction.Commit();
+    }
+    catch
+    {
+        transaction.Rollback();
+        throw;
+    }
+}
+
+    
+    public SaleItem? GetItemById(string itemId)
     {
         using var conn = new NpgsqlConnection(_connectionString);
         conn.Open();
 
-        using var transaction = conn.BeginTransaction();
-
-        try
-        {
-
         using var cmd = new NpgsqlCommand(@"
-                INSERT INTO sale_items(sell_id, product_id, quantity)
-                VALUES (@sell_id, @product_id, @quantity)
-                RETURNING id, created_at, updated_at;", conn);
+        SELECT id, sell_id, product_id, quantity, created_at, updated_at
+        FROM sale_items
+        WHERE id = @id;
+    ", conn);
 
-        cmd.Parameters.AddWithValue("sell_id", item.SellId);
-        cmd.Parameters.AddWithValue("product_id", item.ProductId);
-        cmd.Parameters.AddWithValue("quantity", item.Quantity);
+        cmd.Parameters.AddWithValue("id", itemId);
 
         using var reader = cmd.ExecuteReader();
+
         if (reader.Read())
         {
-            item.Id = reader.GetString(0);
-            item.CreatedAt = reader.GetDateTime(1);
-            item.UpdatedAt = reader.GetDateTime(2);
-        }
-        transaction.Commit();
-        }
-        catch
-        {
-        transaction.Rollback();
-        throw;
+            return new SaleItem
+            {
+                Id = reader.GetString(0),
+                SellId = reader.GetString(1),
+                ProductId = reader.GetString(2),
+                Quantity = reader.GetInt32(3),
+                CreatedAt = reader.GetDateTime(4),
+                UpdatedAt = reader.GetDateTime(5)
+            };
         }
 
+        return null;
     }
+
 
     public void UpdateItemQuantity(string itemId, int quantity)
     {
