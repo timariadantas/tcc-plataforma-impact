@@ -5,7 +5,7 @@ namespace CartService.DTO.Responses;
     {
         public string Id { get; set; } = null!;
         public string ClientId { get; set; } = null!;
-        public int Status { get; set; }
+       public SaleStatusDTO Status { get; set; }= new();
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public List<SaleItemResponseDTO> Items { get; set; } = new List<SaleItemResponseDTO>();
