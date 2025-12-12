@@ -6,8 +6,8 @@ namespace CartService.Domain;
 
     public class Sale
     {
-        public string Id { get; set; } = null!;    // ULID-like
-        public string ClientId { get; set; } = null!;  // Identificador do cliente
+        public string Id { get; set; } = null!;     
+        public string ClientId { get; set; } = null!;
         public List<SaleItem> Items { get; set; } = new List<SaleItem>();
         public int Status { get; set; }  // estado da venda enum
         public DateTime CreatedAt { get; set; }
