@@ -50,7 +50,9 @@ namespace ClientService.Controllers
                     Surname = client.Surname,
                     Email = client.Email,
                     Birthdate = client.Birthdate,
-                    Active = client.Active
+                    Active = client.Active,
+                    CreatedAt = client.CreatedAt,
+                    UpdatedAt = client.UpdatedAt
                 };
                 response.Message = "Cliente criado com sucesso";
             }
@@ -197,7 +199,7 @@ namespace ClientService.Controllers
                 };
                 response.Message = "Cliente atualizado com sucesso";
 
-                _logger.Log($"Cliente atualizado: ID {client.Id}", Logging.LogLevel.INFO );
+                _logger.Log($"Cliente atualizado: ID {client.Id}", Logging.LogLevel.INFO);
             }
             catch (ArgumentException ex)
             {
