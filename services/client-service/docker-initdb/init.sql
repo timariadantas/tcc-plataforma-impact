@@ -4,7 +4,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 
 CREATE TABLE IF NOT EXISTS clients (
-    id TEXT PRIMARY KEY DEFAULT encode(gen_random_bytes(16), 'hex'), -- ULID-like,
+    id TEXT PRIMARY KEY 
     name TEXT NOT NULL,
     surname TEXT NOT NULL,
     email TEXT NOT NULL,
@@ -14,19 +14,6 @@ CREATE TABLE IF NOT EXISTS clients (
     active BOOLEAN NOT NULL DEFAULT true
 );
 
--- Alterar coluna 'id' para gerar valor automaticamente se não informado
-ALTER TABLE clients
-ALTER COLUMN id SET DEFAULT encode(gen_random_bytes(16), 'hex');
-
--- Definir default para created_at e updated_at
-ALTER TABLE clients
-ALTER COLUMN created_at SET DEFAULT NOW();
-ALTER TABLE clients
-ALTER COLUMN updated_at SET DEFAULT NOW();
-
--- Definir default para active
-ALTER TABLE clients
-ALTER COLUMN active SET DEFAULT true;
 
 
 -- índices úteis
