@@ -5,7 +5,7 @@ namespace CartService.Storage;
 
     public interface ISalesStorage
     {
-     void Create(Sale sale);
+        void Create(Sale sale);
         Sale? GetById(string id);
         void UpdateStatus(string saleId, int status);
         void CancelSale(string saleId);
@@ -17,4 +17,5 @@ namespace CartService.Storage;
         int GetSalesCountByProductAndStatus(string productId, int status);
         List<Sale> GetSalesByStatus(int status);
         List<SaleItem> GetItemsBySaleId(string saleId);
+        SaleItem? GetItemById(string itemId);
     }
