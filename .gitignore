@@ -9,3 +9,5 @@ obj/
 docker-compose.override.yml
 
 .fake.env
+
+.fake

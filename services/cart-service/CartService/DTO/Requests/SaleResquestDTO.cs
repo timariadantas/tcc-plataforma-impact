@@ -1,9 +1,11 @@
+using CartService.DTO.Responses;
 namespace CartService.DTO.Requests;
 
 public class SaleRequestDTO
 {
     public string ClientId { get; set; } = null!;
-    public List<SaleItemRequestDTO>? Items { get; set; }
+    public SaleStatusDTO Status { get; set; } = new();
+    public List<SaleItemRequestDTO> Items { get; set; } = new List<SaleItemRequestDTO>();
 }
 
 public class SaleItemRequestDTO

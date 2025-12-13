@@ -27,26 +27,26 @@ namespace CartService.Controllers
 
         // Criar uma venda
         [HttpPost]
-        public IActionResult CreateSale([FromBody] SaleRequestDTO dto)
+        public IActionResult CreateSale([FromBody] SaleRequestDTO request)
         {
             var stopwatch = Stopwatch.StartNew();
             var response = new ApiResponse<SaleResponseDTO>();
 
             try
             {
-                _logger.LogInformation("[CreateSale] Iniciando criação da venda para cliente: {0}", dto.ClientId);
+                _logger.LogInformation("[CreateSale] Iniciando criação da venda para cliente: {0}", request.ClientId);
 
         // Converte os DTOs de items para domain
         List<SaleItem>? items = null;
-        if (dto.Items != null && dto.Items.Count > 0)
+        if (request.Items != null && request.Items.Count > 0)
         {
-            items = dto.Items.Select(i => new SaleItem
+            items = request.Items.Select(i => new SaleItem
             {
                 ProductId = i.ProductId,
                 Quantity = i.Quantity
             }).ToList();
         }
-                var sale = _salesService.CreateSale(dto.ClientId, items);
+                var sale = _salesService.CreateSale(request.ClientId, items);
 
                 response.Data = SaleMapper.ToResponse(sale);
                 response.Message = "Venda criada com sucesso";
@@ -78,7 +78,7 @@ namespace CartService.Controllers
             {
                 response.Message = "Erro ao criar venda";
                 response.Error = ex.Message;
-                _logger.LogError(ex, "[CreateSale][500] Erro inesperado criando venda for client {0}", dto.ClientId);
+                _logger.LogError(ex, "[CreateSale][500] Erro inesperado criando venda for client {0}", request.ClientId);
                 return StatusCode(500, response);
             }
             finally
