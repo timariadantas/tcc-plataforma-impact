@@ -35,7 +35,7 @@ services:
       - ./services/client-service/docker-initdb:/docker-entrypoint-initdb.d
       - ./services/client-service/logs:/app/Logs
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p ${CLIENT_DB_PORT} -U ${CLIENT_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p ${CLIENT_DB_PORT} -U ${CLIENT_DB_USER}"]
       interval: 5s
       retries: 10
       start_period: 60s
@@ -77,7 +77,7 @@ services:
       - product_data:/var/lib/postgresql/data
       - ./services/product-service/docker-initdb:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p ${PRODUCT_DB_PORT} -U ${PRODUCT_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p ${PRODUCT_DB_PORT} -U ${PRODUCT_DB_USER}"]
       interval: 5s
       retries: 10
       start_period: 30s
@@ -139,7 +139,7 @@ services:
       - cart_data:/var/lib/postgresql/data
       - ./services/cart-service/CartService/docker-initdb:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -p ${CART_DB_PORT} -U ${CART_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p ${CART_DB_PORT} -U ${CART_DB_USER}"]
       interval: 5s
       retries: 10
       start_period: 60s
