@@ -9,21 +9,23 @@ using CartService.DTO.Responses;
 using CartService.Tests.Factories;
 using CartService.Logging;
 
+
 namespace CartService.Tests.Unit
 {
     public class SalesControllerTests
     {
         private readonly SaleController _controller;
         private readonly SalesService _service;
-        private readonly SalesFactoryInMemory _storage;
-        private readonly LoggerService _logger;
+    
+
 
         public SalesControllerTests()
         {
-            _storage = new SalesFactoryInMemory();
-            _service = new SalesService(_storage);
-            _logger = new LoggerService();
-            _controller = new SaleController(_service, _logger);
+            var storage = new SalesFactoryInMemory();
+            var logger = new LoggerFake();
+
+            _service = new SalesService(storage, logger);
+            _controller = new SaleController(_service, logger);
         }
 
         [Fact]
@@ -33,11 +35,13 @@ namespace CartService.Tests.Unit
             var result = _controller.CreateSale(request);
 
             var okResult = Assert.IsType<OkObjectResult>(result);
-            var apiResponse = Assert.IsType<ApiResponse<SaleResponseDTO>>(okResult.Value!);
+            var apiResponse = Assert.IsType<ApiResponse<SaleResponseDTO>>(okResult.Value);
 
             Assert.Equal("Venda criada com sucesso", apiResponse.Message);
+            Assert.Equal(string.Empty, apiResponse.Error);
+            Assert.NotNull(apiResponse.Data);
             Assert.Equal("123", apiResponse.Data!.ClientId);
-            Assert.Equal((int)SaleStatus.Started, apiResponse.Data.Status);
+            Assert.Equal("Started", apiResponse.Data!.Status.Name);
         }
 
         [Fact]
@@ -47,9 +51,9 @@ namespace CartService.Tests.Unit
             var result = _controller.GetSaleById(sale.Id);
 
             var okResult = Assert.IsType<OkObjectResult>(result);
-            var apiResponse = Assert.IsType<ApiResponse<SaleResponseDTO>>(okResult.Value!);
+            var apiResponse = Assert.IsType<ApiResponse<SaleResponseDTO>>(okResult.Value);
 
-            Assert.Equal("Venda encontrada", apiResponse.Message);
+            Assert.Equal("Venda encontrada com sucesso", apiResponse.Message);
             Assert.Equal(sale.Id, apiResponse.Data!.Id);
         }
 
@@ -59,9 +63,9 @@ namespace CartService.Tests.Unit
             var result = _controller.GetSaleById("invalid-id");
 
             var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
-            var apiResponse = Assert.IsType<ApiResponse<object>>(notFoundResult.Value!);
+            var apiResponse = Assert.IsType<ApiResponse<SaleResponseDTO>>(notFoundResult.Value!);
 
-            Assert.Equal("Venda não encontrada", apiResponse.Message);
+            Assert.Equal("Venda não encontrada.", apiResponse.Message);
             Assert.Equal("NotFound", apiResponse.Error);
         }
 
