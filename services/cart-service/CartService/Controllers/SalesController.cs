@@ -36,17 +36,24 @@ namespace CartService.Controllers
             {
                 _logger.LogInformation("[CreateSale] Iniciando criação da venda para cliente: {0}", request.ClientId);
 
-        // Converte os DTOs de items para domain
-        List<SaleItem>? items = null;
-        if (request.Items != null && request.Items.Count > 0)
-        {
-            items = request.Items.Select(i => new SaleItem
-            {
-                ProductId = i.ProductId,
-                Quantity = i.Quantity
-            }).ToList();
-        }
+                // Converte os DTOs de items para domain
+                List<SaleItem>? items = null;
+                if (request.Items != null && request.Items.Count > 0)
+                {
+                    items = request.Items.Select(i => new SaleItem
+                    {
+                        ProductId = i.ProductId,
+                        Quantity = i.Quantity
+                    }).ToList();
+                }
+                // Cria a venda no serviço
                 var sale = _salesService.CreateSale(request.ClientId, items);
+
+                // Define o status inicial da venda
+                sale.Status = SaleStatus.Started;
+
+                _logger.LogInformation("[CreateSale] Sale.Status raw value = {0}", sale.Status);
+
 
                 response.Data = SaleMapper.ToResponse(sale);
                 response.Message = "Venda criada com sucesso";
@@ -356,7 +363,7 @@ namespace CartService.Controllers
 
         // Consultar vendas por status
         [HttpGet("status/{status}")]
-        public IActionResult GetSalesByStatus(int status)
+        public IActionResult GetSalesByStatus(string status)
         {
             var stopwatch = Stopwatch.StartNew();
             var response = new ApiResponse<List<SaleResponseDTO>>();
@@ -364,7 +371,11 @@ namespace CartService.Controllers
             try
             {
                 _logger.LogInformation("[GetSalesByStatus] Consultando vendas com status {0}", status);
-                var sales = _salesService.GetSalesByStatus(status);
+                if (!Enum.TryParse<SaleStatus>(status, true, out var parsed))
+                    return BadRequest("Status inválido");
+
+                var sales = _salesService.GetSalesByStatus(parsed);
+
 
                 response.Data = sales.Select(SaleMapper.ToResponse).ToList();
                 response.Message = "Vendas com status recuperadas com sucesso";
@@ -393,10 +404,16 @@ namespace CartService.Controllers
             }
             catch (Exception ex)
             {
-                response.Message = "Erro ao consultar vendas por status";
-                response.Error = ex.Message;
-                _logger.LogError(ex, "[GetSalesByStatus][500] Erro consultando vendas por status {0}", status);
-                return StatusCode(500, response);
+                _logger.LogError(ex, "ERRO AO CRIAR VENDA");
+                return StatusCode(500, new ApiResponse<SaleResponseDTO>
+                {
+                    Message = "Erro ao criar venda",
+                    Error = ex.Message,
+                    Data = null,
+                    Timestamp = DateTime.UtcNow
+                });
+
+
             }
             finally
             {
