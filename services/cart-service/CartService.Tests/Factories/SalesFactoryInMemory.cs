@@ -84,6 +84,21 @@ namespace CartService.Tests.Factories
         {
             return _sales.Where(s => s.Status == status).ToList();
         }
+
+        public SaleItem? GetItemById(string itemId)
+        {
+            foreach (var item in _items)
+            {
+                if (item.Id == itemId)
+                {
+                    return item;
+                }
+            }
+
+            // Se não encontrou nenhum item com esse Id
+            return null;
+        }
+
     }
 }
 
