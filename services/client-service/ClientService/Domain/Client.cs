@@ -1,7 +1,6 @@
 
 using System;
-using Microsoft.AspNetCore.Mvc;
-using static System.Ulid;
+using NUlid;
 
 
 namespace ClientService.Domain
@@ -11,7 +10,7 @@ namespace ClientService.Domain
 
 public class Client
 {
-    public string Id { get; set; } = Ulid.NewUlid().ToString();
+    public string Id { get; set; } = NUlid.Ulid.NewUlid().ToString();
     public string Name { get; set; } = string.Empty;
     public string Surname { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
