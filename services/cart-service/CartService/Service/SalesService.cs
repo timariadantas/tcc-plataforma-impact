@@ -18,51 +18,70 @@ namespace CartService.Service
             _logger = logger;
         }
 
-       // criar venda
-        public Sale CreateSale(string clientId, List<SaleItem>? items = null)
+        // criar venda
+       public Sale CreateSale(string clientId, List<SaleItem>? items = null)
+{
+    if (string.IsNullOrWhiteSpace(clientId))
+        throw new DomainValidationException("ClientId não pode ser vazio.");
+
+    var sale = new Sale
+    {
+        Id = Ulid.NewUlid().ToString(),
+        ClientId = clientId,
+        Status = SaleStatus.Started,
+        CreatedAt = DateTime.UtcNow,
+        UpdatedAt = DateTime.UtcNow,
+        Items = new List<SaleItem>()
+    };
+
+    try
+    {
+        // Cria venda sem itens inicialmente
+        _storage.Create(sale);
+        _logger.LogInformation(
+            $"Insert Sale -> id:{sale.Id}, client_id:{sale.ClientId}, status:{(int)sale.Status}, created_at:{sale.CreatedAt:o}, updated_at:{sale.UpdatedAt:o}"
+        );
+
+        // Sem itens → finaliza
+        if (items == null || items.Count == 0)
         {
-            if (string.IsNullOrWhiteSpace(clientId))
-                throw new DomainValidationException("ClientId não pode ser vazio.");
-
-            var sale = new Sale
-            {
-                Id = Ulid.NewUlid().ToString(),          
-                ClientId = clientId,
-                Status = (int)SaleStatus.Started,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            // Cria venda sem itens inicialmente
-            _storage.Create(sale);
-
-            // Sem itens → finaliza
-            if (items == null || items.Count == 0)
-            {
-                _logger.LogInformation("Venda criada (sem itens) para Cliente {ClientId}", clientId);
-                return sale;
-            }
-
-            // Se veio itens → adiciona
-            foreach (var item in items)
-            {
-                item.Id = Ulid.NewUlid().ToString();     // <-- ITEM TAMBÉM PRECISA ID AGORA
-                item.SellId = sale.Id;
-                item.CreatedAt = DateTime.UtcNow;
-                item.UpdatedAt = DateTime.UtcNow;
-
-                _storage.AddItem(item);
-            }
-
-            // Atualiza status
-            _storage.UpdateStatus(sale.Id, (int)SaleStatus.Progress);
-
-            _logger.LogInformation("Venda criada (com itens) para Cliente {ClientId}", clientId);
-
+            _logger.LogInformation("Venda criada (sem itens) para Cliente {ClientId}", clientId);
             return sale;
         }
 
-        
+        // Se veio itens → adiciona
+        foreach (var item in items)
+        {
+            item.Id = Ulid.NewUlid().ToString();
+            item.SellId = sale.Id;
+            item.CreatedAt = DateTime.UtcNow;
+            item.UpdatedAt = DateTime.UtcNow;
+
+            _storage.AddItem(item);
+            _logger.LogInformation(
+                $"Insert SaleItem -> id:{item.Id}, sell_id:{item.SellId}, product_id:{item.ProductId}, quantity:{item.Quantity}, created_at:{item.CreatedAt:o}, updated_at:{item.UpdatedAt:o}"
+            );
+
+            sale.Items.Add(item); // Mantém consistência em memória
+        }
+
+        // Atualiza status
+        _storage.UpdateStatus(sale.Id, SaleStatus.Progress);
+        _logger.LogInformation($"UpdateStatus -> id:{sale.Id}, status:{(int)SaleStatus.Progress}");
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError($"[CreateSale][500] Erro inesperado criando venda for client {clientId} | EXCEPTION: {ex.Message} | STACK: {ex.StackTrace}");
+        throw new Exception("Erro ao criar venda", ex);
+    }
+
+    _logger.LogInformation($"Venda criada (com itens) para Cliente {clientId}");
+    return sale;
+}
+
+            
+
+
         // Adicionar item à venda
         public void AddItem(string saleId, string productId, int quantity)
         {
@@ -79,15 +98,15 @@ namespace CartService.Service
             if (sale is null)
                 throw new NotFoundException("Venda não encontrada.");
 
-            if (sale.Status == (int)SaleStatus.Canceled)
+            if (sale.Status == SaleStatus.Canceled)
                 throw new BusinessRuleException("Não é permitido adicionar itens em venda cancelada.");
 
-            if (sale.Status == (int)SaleStatus.Done)
+            if (sale.Status == SaleStatus.Done)
                 throw new BusinessRuleException("Não é permitido adicionar itens em venda finalizada.");
 
             var saleItem = new SaleItem
             {
-                Id = Ulid.NewUlid().ToString(), 
+                Id = Ulid.NewUlid().ToString(),
                 SellId = saleId,
                 ProductId = productId,
                 Quantity = quantity,
@@ -96,9 +115,13 @@ namespace CartService.Service
             };
 
             _storage.AddItem(saleItem);
+            sale.UpdatedAt = DateTime.UtcNow;
 
-            if (sale.Status == (int)SaleStatus.Started)
-                _storage.UpdateStatus(saleId, (int)SaleStatus.Progress);
+
+
+            sale.Items.Add(saleItem);
+            if (sale.Status == SaleStatus.Started)
+                _storage.UpdateStatus(saleId, SaleStatus.Progress);
 
             _logger.LogInformation(
                 "Item adicionado | SaleId: {SaleId} | Produto: {ProductId} | Qtd: {Quantity}",
@@ -123,13 +146,17 @@ namespace CartService.Service
             if (sale is null)
                 throw new NotFoundException("Venda não encontrada.");
 
-            if (sale.Status == (int)SaleStatus.Canceled)
+            if (sale.Status == SaleStatus.Canceled)
                 throw new BusinessRuleException("Venda cancelada não pode ser alterada.");
 
-            if (sale.Status == (int)SaleStatus.Done)
+            if (sale.Status == SaleStatus.Done)
                 throw new BusinessRuleException("Venda finalizada não pode ser alterada.");
 
             _storage.UpdateItemQuantity(itemId, quantity);
+
+            // mantém objeto sincronizado em memória
+            item.Quantity = quantity;
+            item.UpdatedAt = DateTime.UtcNow;
 
             _logger.LogInformation(
                 "Quantidade do item {ItemId} alterada para {Quantity}",
@@ -147,13 +174,13 @@ namespace CartService.Service
             if (sale is null)
                 throw new NotFoundException("Venda não encontrada.");
 
-            if (sale.Status == (int)SaleStatus.Canceled)
+            if (sale.Status == SaleStatus.Canceled)
             {
                 _logger.LogWarning("Cancelamento ignorado. Venda {SaleId} já estava cancelada.", saleId);
                 return;
             }
 
-            _storage.UpdateStatus(saleId, (int)SaleStatus.Canceled);
+            _storage.UpdateStatus(saleId, SaleStatus.Canceled);
 
             _logger.LogInformation("Venda {SaleId} cancelada com sucesso.", saleId);
         }
@@ -193,34 +220,35 @@ namespace CartService.Service
             return sale;
         }
         // Buscar vendas por Status
-public List<Sale> GetSalesByStatus(int status)
-{
-    var sale = _storage.GetSalesByStatus(status);
 
-    if (sale is null || sale.Count == 0)
-        throw new NotFoundException($"Nenhuma venda encontrada com status {status}.");
 
-    _logger.LogInformation(
-        "{Quantidade} vendas encontradas com Status {Status}",
-        sale.Count, status
-    );
+        public List<Sale> GetSalesByStatus(SaleStatus status)
+        {
+            var sales = _storage.GetSalesByStatus(status);
 
-    return sale;
-}
-public SaleItem GetItemById(string itemId)
-{
-    if (string.IsNullOrWhiteSpace(itemId))
-        throw new DomainValidationException("ItemId não pode ser vazio.");
+            if (sales == null || sales.Count == 0)
+                throw new NotFoundException("Nenhuma venda encontrada com esse status.");
 
-    var item = _storage.GetItemById(itemId);
+            _logger.LogInformation("{Count} vendas encontradas com status {Status}", sales.Count, status);
 
-    if (item is null)
-        throw new NotFoundException("Item não encontrado.");
+            return sales;
+        }
 
-    _logger.LogInformation("Item encontrado {ItemId}", itemId);
 
-    return item;
-}
+        public SaleItem GetItemById(string itemId)
+        {
+            if (string.IsNullOrWhiteSpace(itemId))
+                throw new DomainValidationException("ItemId não pode ser vazio.");
+
+            var item = _storage.GetItemById(itemId);
+
+            if (item is null)
+                throw new NotFoundException("Item não encontrado.");
+
+            _logger.LogInformation("Item encontrado {ItemId}", itemId);
+
+            return item;
+        }
 
     }
 }
