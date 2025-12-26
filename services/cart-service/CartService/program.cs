@@ -26,7 +26,10 @@ builder.Services.AddSingleton<ILoggerService>(sp =>  //servidorprovider
 
 
 //DI
-builder.Services.AddSingleton<ISalesStorage>(new SalesStorage(connectionString));
+builder.Services.AddSingleton<ISalesStorage>(sp =>
+    new SalesStorage(connectionString, sp.GetRequiredService<ILoggerService>())
+);
+
 builder.Services.AddScoped<ISalesService, SalesService>();
 
 
