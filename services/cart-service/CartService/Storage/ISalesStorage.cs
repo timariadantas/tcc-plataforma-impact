@@ -7,15 +7,17 @@ namespace CartService.Storage;
     {
         void Create(Sale sale);
         Sale? GetById(string id);
-        void UpdateStatus(string saleId, int status);
+        void UpdateStatus(string saleId, SaleStatus status);
         void CancelSale(string saleId);
 
         void AddItem(SaleItem item);
         void UpdateItemQuantity(string itemId, int quantity);
 
         List<Sale> GetSalesByProduct(string productId);
-        int GetSalesCountByProductAndStatus(string productId, int status);
-        List<Sale> GetSalesByStatus(int status);
+        int GetSalesCountByProductAndStatus(string productId, SaleStatus status);
+        List<Sale> GetSalesByStatus(SaleStatus status);
         List<SaleItem> GetItemsBySaleId(string saleId);
         SaleItem? GetItemById(string itemId);
+       
+
     }
