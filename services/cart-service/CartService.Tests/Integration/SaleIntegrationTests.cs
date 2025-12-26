@@ -6,14 +6,16 @@ using CartService.Domain;
 using CartService.DTO.Requests;
 using DotNetEnv;
 using System;
-
+using CartService.Tests.Factories;
 namespace CartService.Tests.Integration
 {
+    [Trait("Category", "Integration")]
     public class SaleIntegrationTests : IDisposable
     {
         private readonly SalesService _service;
         private readonly SalesStorage _storage;
-        private readonly LoggerService _logger;
+        private readonly ILoggerService _logger;
+        
 
         public SaleIntegrationTests()
         {
@@ -28,9 +30,9 @@ namespace CartService.Tests.Integration
 
             var connectionString = $"Host={dbHost};Port={dbPort};Username={dbUser};Password={dbPass};Database={dbName}";
 
-            _logger = new LoggerService("/app/Logs/cart-integration-tests.log");
-            _storage = new SalesStorage(connectionString, _logger);
-            _service = new SalesService(_storage);
+            _logger = new LoggerFake();
+            _storage = new SalesStorage(connectionString);
+            _service = new SalesService(_storage, _logger);
         }
 
         [Fact]
@@ -40,7 +42,7 @@ namespace CartService.Tests.Integration
 
             Assert.NotNull(sale);
             Assert.Equal("client_test", sale.ClientId);
-            Assert.Equal(SaleStatus.Started, sale.Status);
+            Assert.Equal((int)SaleStatus.Started, sale.Status);
         }
 
         [Fact]
@@ -73,7 +75,7 @@ namespace CartService.Tests.Integration
             _service.CancelSale(sale.Id);
 
             var canceled = _service.GetSaleById(sale.Id);
-            Assert.Equal(SaleStatus.Cancelled, canceled!.Status);
+            Assert.Equal((int)SaleStatus.Canceled, canceled!.Status);
         }
 
         public void Dispose()
