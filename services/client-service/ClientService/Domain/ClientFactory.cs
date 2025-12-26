@@ -1,5 +1,5 @@
 using System;
-using static System.Ulid;
+using NUlid;
 namespace ClientService.Domain
 {
     public static class ClientFactory
@@ -8,7 +8,7 @@ namespace ClientService.Domain
         {
             return new Client
             {
-                Id = Ulid.NewUlid().ToString(),
+                Id = NUlid.Ulid.NewUlid().ToString(),
                 Name = name,
                 Surname = surname,
                 Email = email,
