@@ -9,7 +9,7 @@ namespace CartService.Domain;
         public string Id { get; set; } = null!;     
         public string ClientId { get; set; } = null!;
         public List<SaleItem> Items { get; set; } = new List<SaleItem>();
-        public int Status { get; set; }  // estado da venda enum
+        public SaleStatus Status { get; set; }  // estado da venda enum
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }
