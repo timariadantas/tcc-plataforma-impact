@@ -12,6 +12,6 @@ namespace CartService.Service;
         void CancelSale(string saleId);
         Sale? GetSaleById(string saleId);
         List<Sale> GetSalesByProduct(string productId);
-        List<Sale> GetSalesByStatus(int status);
+        List<Sale> GetSalesByStatus(SaleStatus status);
         SaleItem? GetItemById(string itemId);
     }
