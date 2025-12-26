@@ -12,10 +12,12 @@ namespace CartService.Tests.Unit
         private readonly SalesFactoryInMemory _storage;
         private readonly SalesService _service;
 
+
         public SalesServiceTests()
         {
             _storage = new SalesFactoryInMemory();
-            _service = new SalesService(_storage);
+            var loggerFake = new LoggerFake();
+            _service = new SalesService(_storage, loggerFake);
         }
 
         [Fact]
