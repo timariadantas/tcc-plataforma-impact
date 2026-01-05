@@ -12,6 +12,8 @@ public class NameValidation : IValidationStrategy<Client>
 }
 
 //Anotações IPC
+
+// Que nenhuma entidade do sistema exista em estado inválido.
 //A classe valida que o nome e o sobrenome do cliente não podem estar vazios.
 //Faz parte da camada de domínio, mantendo as regras de negócio separadas do serviço e do storage.
 //Segue o Strategy Pattern, permitindo que você adicione outras validações (EmailValidation, BirthdateValidation, etc.) sem modificar a entidade Client.
