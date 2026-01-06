@@ -1,7 +1,3 @@
--- Habilita extensão para gerar valores aleatórios (necessário para ULID/hex)
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
-
 
 CREATE TABLE IF NOT EXISTS clients (
     id TEXT PRIMARY KEY ,
