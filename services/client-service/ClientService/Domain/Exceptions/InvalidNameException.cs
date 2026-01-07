@@ -1,7 +1,15 @@
+using System;
+
 namespace ClientService.Domain.Exceptions;
 
-public class InvalidNameException : DomainException
+public class InvalidNameException : Exception
 {
     public InvalidNameException()
-        : base("Nome e sobrenome são obrigatórios.") { }
+    {
+    }
+
+    public InvalidNameException(string message)
+        : base(message)
+    {
+    }
 }

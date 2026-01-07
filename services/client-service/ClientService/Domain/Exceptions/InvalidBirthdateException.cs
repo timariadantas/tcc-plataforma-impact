@@ -1,7 +1,16 @@
+using System;
+
 namespace ClientService.Domain.Exceptions;
 
-public class InvalidBirthdateException : DomainException
+public class InvalidBirthdateException : Exception
 {
     public InvalidBirthdateException(DateTime birthdate)
-        : base($"Data de nascimento inválida: {birthdate:yyyy-MM-dd}") { }
+        : base($"Invalid birthdate: {birthdate}")
+    {
+    }
+
+    public InvalidBirthdateException(string message)
+        : base(message)
+    {
+    }
 }
