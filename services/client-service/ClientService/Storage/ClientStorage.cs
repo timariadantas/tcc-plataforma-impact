@@ -20,9 +20,6 @@ namespace ClientService.Storage
         // CREATE
         public void Create(Client client)
         {
-            // Gera ULID se ainda não tiver
-            if (string.IsNullOrWhiteSpace(client.Id))
-                client.Id = Ulid.NewUlid().ToString();
 
             using var conn = new NpgsqlConnection(_connectionString);
             conn.Open(); // síncrono
@@ -34,8 +31,8 @@ namespace ClientService.Storage
             {
                 using var cmd = new NpgsqlCommand(@"
             INSERT INTO clients(id, name, surname, email, birthdate)
-            VALUES (@id, @name, @surname, @email, @birthdate)
-            RETURNING id, name, surname, email, birthdate, created_at, updated_at, active", conn, transaction);
+            VALUES (@id, @name, @surname, @email, @birthdate)",
+             conn, transaction);
 
                 cmd.Parameters.AddWithValue("id", client.Id);
                 cmd.Parameters.AddWithValue("name", client.Name);
@@ -43,31 +40,14 @@ namespace ClientService.Storage
                 cmd.Parameters.AddWithValue("email", client.Email);
                 cmd.Parameters.AddWithValue("birthdate", client.Birthdate);
 
-                using var reader = cmd.ExecuteReader(System.Data.CommandBehavior.SingleRow);
-                if (reader.Read())
-                {
-                    client.Id = reader.GetString(reader.GetOrdinal("id"));
-                    client.Name = reader.GetString(reader.GetOrdinal("name"));
-                    client.Surname = reader.GetString(reader.GetOrdinal("surname"));
-                    client.Email = reader.GetString(reader.GetOrdinal("email"));
-                    client.Birthdate = reader.GetDateTime(reader.GetOrdinal("birthdate"));
-                    client.CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at"));
-                    client.UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at"));
-                    client.Active = reader.GetBoolean(reader.GetOrdinal("active"));
-                }
-
-
-                reader.Close();
-                // Commit da transação
+                cmd.ExecuteNonQuery();
                 transaction.Commit();
             }
             catch (Exception ex)
             {
-                _logger.Log($"Erro ao criar cliente: {ex.GetType().Name} - {ex.Message}");
-                _logger.Log(ex.StackTrace ?? "Sem stack trace");
-
-                // Rollback em caso de erro
                 transaction.Rollback();
+                _logger.Log($"Erro ao criar cliente: {ex.GetType().Name} - {ex.Message}");
+               // _logger.Log(ex.StackTrace ?? "Sem stack trace"); 
                 throw;
             }
         }
@@ -85,17 +65,17 @@ namespace ClientService.Storage
             using var reader = cmd.ExecuteReader(); // síncrono
             if (!reader.Read()) return null;
 
-            return new Client
-            {
-                Id = reader.GetString(reader.GetOrdinal("id")),
-                Name = reader.GetString(reader.GetOrdinal("name")),
-                Surname = reader.GetString(reader.GetOrdinal("surname")),
-                Email = reader.GetString(reader.GetOrdinal("email")),
-                Birthdate = reader.GetDateTime(reader.GetOrdinal("birthdate")),
-                CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
-                UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
-                Active = reader.GetBoolean(reader.GetOrdinal("active")),
-            };
+            return Client.Restore(
+            
+                reader.GetString(reader.GetOrdinal("id")),
+                reader.GetString(reader.GetOrdinal("name")),
+                reader.GetString(reader.GetOrdinal("surname")),
+                reader.GetString(reader.GetOrdinal("email")),
+                reader.GetDateTime(reader.GetOrdinal("birthdate")),
+                reader.GetDateTime(reader.GetOrdinal("created_at")),
+                reader.GetDateTime(reader.GetOrdinal("updated_at")),
+                reader.GetBoolean(reader.GetOrdinal("active"))
+            );
         }
 
         // GET ALL
@@ -116,17 +96,17 @@ namespace ClientService.Storage
 
                 while (reader.Read())
                 {
-                    list.Add(new Client
-                    {
-                        Id = reader.GetString(reader.GetOrdinal("id")),
-                        Name = reader.GetString(reader.GetOrdinal("name")),
-                        Surname = reader.GetString(reader.GetOrdinal("surname")),
-                        Email = reader.GetString(reader.GetOrdinal("email")),
-                        Birthdate = reader.GetDateTime(reader.GetOrdinal("birthdate")),
-                        CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
-                        UpdatedAt = reader.GetDateTime(reader.GetOrdinal("updated_at")),
-                        Active = reader.GetBoolean(reader.GetOrdinal("active")),
-                    });
+                    list.Add(Client.Restore(
+                    
+                       reader.GetString(reader.GetOrdinal("id")),
+                       reader.GetString(reader.GetOrdinal("name")),
+                        reader.GetString(reader.GetOrdinal("surname")),
+                      reader.GetString(reader.GetOrdinal("email")),
+                       reader.GetDateTime(reader.GetOrdinal("birthdate")),
+                       reader.GetDateTime(reader.GetOrdinal("created_at")),
+                      reader.GetDateTime(reader.GetOrdinal("updated_at")),
+                     reader.GetBoolean(reader.GetOrdinal("active"))
+                    ));
                 }
                 _logger.Log($"GetAll finalizado. Total de clientes: {list.Count}");
             }
@@ -146,17 +126,20 @@ namespace ClientService.Storage
             conn.Open();
 
             using var transaction = conn.BeginTransaction();
+
             try
             {
                 using var cmd = new NpgsqlCommand("DELETE FROM clients WHERE id = @id", conn, transaction);
+
                 cmd.Parameters.AddWithValue("id", id);
 
                 cmd.ExecuteNonQuery();
                 transaction.Commit();
             }
-            catch
+            catch (Exception ex)
             {
                 transaction.Rollback();
+                _logger.Log ($"Erro ao deletar cliente: {ex.Message}");
                 throw;
             }
         }
@@ -169,6 +152,7 @@ namespace ClientService.Storage
             conn.Open();
 
             using var transaction = conn.BeginTransaction();
+
             try
             {
                 using var cmd = new NpgsqlCommand(@"
@@ -186,9 +170,10 @@ namespace ClientService.Storage
                 cmd.ExecuteNonQuery();
                 transaction.Commit();
             }
-            catch
+            catch (Exception ex)
             {
                 transaction.Rollback();
+                _logger.Log($"Erro ao atualizar cliente: {ex.Message}");
                 throw;
             }
         }
