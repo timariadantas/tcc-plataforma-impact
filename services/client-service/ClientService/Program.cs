@@ -20,12 +20,22 @@ builder.Services.AddSingleton<IClientStorage>(new ClientStorage(connectionString
 builder.Services.AddScoped<IClientService, ClientService.Service.ClientService>();
 builder.Services.AddSingleton(logger);
 
+
 // Swagger e Controllers
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 builder.WebHost.UseUrls("http://0.0.0.0:80");
 
 var app = builder.Build();
+//fazer os logs aparecerem para cada requisição
+app.Use(async (context, next) =>
+{
+    Console.WriteLine($"[{DateTime.Now}] {context.Request.Method} {context.Request.Path}");
+    await next();
+});
+
+// Registrar middleware
+app.UseMiddleware<ClientService.Middleware.ExceptionMiddleware>();
 app.UseRouting(); 
 app.UseAuthorization();
 app.UseSwagger();

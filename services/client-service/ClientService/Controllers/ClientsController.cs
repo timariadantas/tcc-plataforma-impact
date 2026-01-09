@@ -1,12 +1,14 @@
 using ClientService.Domain;
 using ClientService.Service;
-using ClientService.DTO.Responses;
 using ClientService.DTO.Requests;
+using ClientService.DTO.Responses;
 using ClientService.Logging;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
+using ClientService.Domain.Exceptions;
+using ClientService.Mappers;
 
 namespace ClientService.Controllers
 {
@@ -23,246 +25,140 @@ namespace ClientService.Controllers
             _logger = logger;
         }
 
+        
         [HttpPost]
-        public IActionResult Create([FromBody] CreateClientDto dto)
+        public IActionResult Create([FromBody] CreateClientRequestDto dto)
         {
-            var stopwatch = Stopwatch.StartNew();
             var response = new ApiResponse<ClientResponseDto>();
+            var stopwatch = Stopwatch.StartNew();
 
             try
             {
-                var client = new Client
-                {
-                    Name = dto.Name,
-                    Surname = dto.Surname,
-                    Email = dto.Email,
-                    Birthdate = dto.Birthdate
-                };
+                var client = _service.Create(dto.Name, dto.Surname, dto.Email, dto.Birthdate);
 
-                _service.Create(client);
-
-                _logger.Log($"Cliente criado: {client.Name}, ID: {client.Id}", Logging.LogLevel.INFO);
-
-                response.Data = new ClientResponseDto
-                {
-                    Id = client.Id,
-                    Name = client.Name,
-                    Surname = client.Surname,
-                    Email = client.Email,
-                    Birthdate = client.Birthdate,
-                    Active = client.Active,
-                    CreatedAt = client.CreatedAt,
-                    UpdatedAt = client.UpdatedAt
-                };
+                response.Data = ClientMapper.ToResponse(client);
                 response.Message = "Cliente criado com sucesso";
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.Log($"Falha ao criar cliente: {ex.Message}", Logging.LogLevel.WARNING);
-                response.Error = ex.Message;
-                response.Message = "Erro ao criar cliente";
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"Erro ao criar cliente: {ex.Message}", Logging.LogLevel.ERROR);
-                response.Error = ex.Message;
-                response.Message = "Erro interno ao criar cliente";
+
+                _logger.Log($"Cliente criado: {client.Id} - {client.Name} {client.Surname}", Logging.LogLevel.INFO);
+
+                return Ok(response);
             }
             finally
             {
                 stopwatch.Stop();
                 response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
-                response.Timestamp = DateTime.UtcNow;
+                response.Timestamp = System.DateTime.UtcNow;
             }
-
-            return response.Error == string.Empty ? Ok(response) : BadRequest(response);
         }
 
+       
         [HttpGet("{id}")]
         public IActionResult GetById(string id)
         {
-            var stopwatch = Stopwatch.StartNew();
             var response = new ApiResponse<ClientResponseDto>();
+            var stopwatch = Stopwatch.StartNew();
 
             try
             {
                 var client = _service.GetById(id);
                 if (client == null)
-                {
-                    _logger.Log($"Cliente não encontrado: ID {id}", Logging.LogLevel.WARNING);
-                    response.Message = "Cliente não encontrado";
-                    response.Error = "Cliente não existe";
-                    return NotFound(response);
-                }
+                    throw new ClientNotFoundException(id);
 
-                response.Data = new ClientResponseDto
-                {
-                    Id = client.Id,
-                    Name = client.Name,
-                    Surname = client.Surname,
-                    Email = client.Email,
-                    Birthdate = client.Birthdate,
-                    Active = client.Active
-                };
+                response.Data = ClientMapper.ToResponse(client);
                 response.Message = "Cliente consultado com sucesso";
 
-                _logger.Log($"Cliente consultado: ID {client.Id}", Logging.LogLevel.INFO);
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"Erro ao consultar cliente ID {id}: {ex.Message}", Logging.LogLevel.ERROR);
-                response.Error = ex.Message;
-                response.Message = "Erro interno";
-                return StatusCode(500, response);
+                _logger.Log($"Cliente consultado: {client.Id}", Logging.LogLevel.INFO);
+
+                return Ok(response);
             }
             finally
             {
                 stopwatch.Stop();
                 response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
-                response.Timestamp = DateTime.UtcNow;
+                response.Timestamp = System.DateTime.UtcNow;
             }
-
-            return Ok(response);
         }
 
+       
         [HttpGet]
         public IActionResult GetAll()
         {
-            var stopwatch = Stopwatch.StartNew();
             var response = new ApiResponse<List<ClientResponseDto>>();
-
-            try
-            {
-                var clients = _service.GetAll();
-                _logger.Log($"Clientes recuperados: {clients.Count}", Logging.LogLevel.INFO);
-
-                response.Data = clients.Select(client => new ClientResponseDto
-                {
-                    Id = client.Id,
-                    Name = client.Name,
-                    Surname = client.Surname,
-                    Email = client.Email,
-                    Birthdate = client.Birthdate,
-                    Active = client.Active
-                }).ToList();
-
-                response.Message = "Lista de clientes recuperada com sucesso";
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"Erro no GetAll: {ex.GetType().Name} - {ex.Message}", Logging.LogLevel.ERROR);
-                _logger.Log(ex.StackTrace ?? "Sem stack trace", Logging.LogLevel.DEBUG);
-                response.Error = ex.Message;
-                response.Message = "Erro interno ao recuperar clientes";
-                return StatusCode(500, response);
-            }
-            finally
-            {
-                stopwatch.Stop();
-                response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
-                response.Timestamp = DateTime.UtcNow;
-            }
-
-            return Ok(response);
-        }
-
-        [HttpPut("{id}")]
-        public IActionResult Update(string id, [FromBody] UpdateClientDto dto)
-        {
             var stopwatch = Stopwatch.StartNew();
-            var response = new ApiResponse<ClientResponseDto>();
 
-            try
-            {
-                var client = new Client
-                {
-                    Id = id,
-                    Name = dto.Name,
-                    Surname = dto.Surname,
-                    Email = dto.Email,
-                    Birthdate = dto.Birthdate,
-                    Active = dto.Active
-                };
+            var clients = _service.GetAll();
+            response.Data = clients.Select(ClientMapper.ToResponse).ToList();
+            response.Message = "Lista de clientes recuperada com sucesso";
 
-                _service.Update(client);
+            _logger.Log($"Clientes recuperados: {clients.Count}", Logging.LogLevel.INFO);
 
-                response.Data = new ClientResponseDto
-                {
-                    Id = client.Id,
-                    Name = client.Name,
-                    Surname = client.Surname,
-                    Email = client.Email,
-                    Birthdate = client.Birthdate,
-                    CreatedAt = client.CreatedAt,
-                    UpdatedAt = client.UpdatedAt,
-                    Active = client.Active
-                };
-                response.Message = "Cliente atualizado com sucesso";
-
-                _logger.Log($"Cliente atualizado: ID {client.Id}", Logging.LogLevel.INFO);
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.Log($"Falha ao atualizar cliente: {ex.Message}", Logging.LogLevel.WARNING);
-                response.Error = ex.Message;
-                response.Message = "Erro ao atualizar cliente";
-                return BadRequest(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"Erro ao atualizar cliente ID {id}: {ex.Message}", Logging.LogLevel.ERROR);
-                response.Error = ex.Message;
-                response.Message = "Erro interno ao atualizar cliente";
-                return StatusCode(500, response);
-            }
-            finally
-            {
-                stopwatch.Stop();
-                response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
-                response.Timestamp = DateTime.UtcNow;
-            }
+            stopwatch.Stop();
+            response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+            response.Timestamp = System.DateTime.UtcNow;
 
             return Ok(response);
         }
 
+       
+        [HttpPut("{id}")]
+        public IActionResult Update(string id, [FromBody] UpdateClientRequestDto dto)
+        {
+            var response = new ApiResponse<ClientResponseDto>();
+            var stopwatch = Stopwatch.StartNew();
+            
+            _service.Update( dto.Name, dto.Surname, dto.Email, dto.Birthdate);
+            var client = _service.GetById(id);
+
+            response.Data =  ClientMapper.ToResponse(client!);
+            response.Message = "Cliente atualizado com sucesso";
+
+            _logger.Log($"Cliente atualizado: ", Logging.LogLevel.INFO);
+
+            stopwatch.Stop();
+            response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+            response.Timestamp = System.DateTime.UtcNow;
+
+            return Ok(response);
+        }
+
+        
         [HttpDelete("{id}")]
         public IActionResult Delete(string id)
         {
-            var stopwatch = Stopwatch.StartNew();
             var response = new ApiResponse<DeleteResponseDto>();
+            var stopwatch = Stopwatch.StartNew();
 
-            try
-            {
-                _service.Delete(id);
+            _service.Delete(id);
 
-                response.Data = new DeleteResponseDto
-                {
-                    Message = $"Cliente deletado com sucesso: ID {id}"
-                };
-                response.Message = "Cliente deletado com sucesso";
+            response.Data = new DeleteResponseDto { Message = $"Cliente deletado com sucesso: {id}" };
+            response.Message = "Cliente deletado com sucesso";
 
-                _logger.Log($"Cliente deletado: ID {id}", Logging.LogLevel.INFO);
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.Log($"Falha ao deletar cliente ID {id}: {ex.Message}", Logging.LogLevel.WARNING);
-                response.Error = ex.Message;
-                response.Message = "Erro ao deletar cliente";
-                return BadRequest(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"Erro ao deletar cliente ID {id}: {ex.Message}", Logging.LogLevel.ERROR);
-                response.Error = ex.Message;
-                response.Message = "Erro interno ao deletar cliente";
-                return StatusCode(500, response);
-            }
-            finally
-            {
-                stopwatch.Stop();
-                response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
-                response.Timestamp = DateTime.UtcNow;
-            }
+            _logger.Log($"Cliente deletado: {id}", Logging.LogLevel.INFO);
+
+            stopwatch.Stop();
+            response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+            response.Timestamp = System.DateTime.UtcNow;
+
+            return Ok(response);
+        }
+
+        [HttpPatch("{id}/deactivate")]
+        public IActionResult Deactivate(string id)
+        {
+            var response = new ApiResponse<ClientResponseDto>();
+            var stopwatch = Stopwatch.StartNew();
+
+            _service.Deactivate(id);
+
+            var client = _service.GetById(id);
+            response.Data = ClientMapper.ToResponse(client!);
+            response.Message = "Cliente desativado com sucesso";
+
+            _logger.Log($"Cliente desativado: {id}", Logging.LogLevel.INFO);
+
+            stopwatch.Stop();
+            response.Elapsed = (int)stopwatch.ElapsedMilliseconds;
+            response.Timestamp = System.DateTime.UtcNow;
 
             return Ok(response);
         }

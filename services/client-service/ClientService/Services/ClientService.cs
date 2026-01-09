@@ -22,7 +22,7 @@ namespace ClientService.Service
         }
 
         
-        public void Create(string name, string surname, string email, DateTime birthdate)
+        public Client Create(string name, string surname, string email, DateTime birthdate)
         {
            _logger.Log($"Iniciando criação de cliente: {name} {surname}");
 
@@ -31,6 +31,7 @@ namespace ClientService.Service
                 var client = Client.CreateNew(name, surname, email,  birthdate);
                 _storage.Create(client);
                 _logger.Log($"Cliente criado com sucesso ! Id={client.Id}");
+                return client;
             }
             catch (Exception ex)
             {

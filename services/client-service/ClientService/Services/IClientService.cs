@@ -6,7 +6,7 @@ namespace ClientService.Service
 {
     public interface IClientService
     {
-        void  Create(string name, string surname, string email, DateTime birthdate);                
+        Client Create(string name, string surname, string email, DateTime birthdate);                
         Client?GetById(string id);         
         List<Client>GetAll();                             
         void Update(string name, string surname, string email, DateTime birthdate);
