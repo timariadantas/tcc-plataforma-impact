@@ -6,11 +6,12 @@ namespace ClientService.Service
 {
     public interface IClientService
     {
-        void  Create(Client client);                
+        void  Create(string name, string surname, string email, DateTime birthdate);                
         Client?GetById(string id);         
-        List<Client>GetAll();              
-        void  Delete(string id);                
-        void Update(Client client);
-    
+        List<Client>GetAll();                             
+        void Update(string name, string surname, string email, DateTime birthdate);
+        void  Delete(string id);   
+    void Deactivate(string id);
+ 
     }
 }

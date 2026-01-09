@@ -1,73 +1,115 @@
 using ClientService.Domain;
 using ClientService.Domain.Validation;
+using ClientService.Logging;
 using ClientService.Storage;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 
 namespace ClientService.Service
 {
     public class ClientService : IClientService
     {
         private readonly IClientStorage _storage;
-        private readonly List<IValidationStrategy<Client>> _validators;
+        private readonly LoggerService _logger;
 
-        public ClientService(IClientStorage storage)
+
+        public ClientService(IClientStorage storage , LoggerService logger)
         {
             _storage = storage;
-            _validators = new List<IValidationStrategy<Client>>
-            {
-                new EmailValidation(),
-                new NameValidation()
-            };
+            _logger = logger;
         }
 
-        // CREATE
-        public void Create(Client client)
+        
+        public void Create(string name, string surname, string email, DateTime birthdate)
         {
-            // Validações
-            foreach (var validator in _validators)
-            {
-                validator.Validate(client);
-            }
+           _logger.Log($"Iniciando criação de cliente: {name} {surname}");
 
-            _storage.Create(client); // síncrono
+           try
+            {
+                var client = Client.CreateNew(name, surname, email,  birthdate);
+                _storage.Create(client);
+                _logger.Log($"Cliente criado com sucesso ! Id={client.Id}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Log($"Erro ao criar Cliente: {ex.GetType().Name} - {ex.Message} ");
+                _logger.Log(ex.StackTrace ?? "Sem strack trace");
+                throw;
+            }
         }
 
-        // GET BY ID
+        
         public Client? GetById(string id)
         {
-            return _storage.GetById(id); // síncrono
+             _logger.Log($" Buscando cliente por id: {id}");
+                return _storage.GetById(id); 
         }
 
-        // GET ALL
+        
         public List<Client> GetAll()
         {
-            return _storage.GetAll(); // síncrono
+            _logger.Log($"Buscando todos os clintes");
+            return _storage.GetAll(); 
         }
 
-        // DELETE
-        public void Delete(string id)
+      
+        
+        public void Update(string id, string name ,string surname, string email , DateTime birthdate )
         {
+            _logger.Log($"Atualizando Cliente {id}");
+
             var client = _storage.GetById(id);
             if (client == null)
+            {
+                _logger.Log($"Client {id} não encontrado para atualização");
                 throw new ArgumentException("Cliente não encontrado");
 
+            }
+            client.UpdatePersonalData(name, surname, email, birthdate);
+            _storage.Update(client);
+
+            _logger.Log($"Cliente{id} atualizado com sucesso");
+        }
+          // Apagar fisicamente o registro do banco.
+        public void Delete(string id)  
+        {
+             _logger.Log($"Solicitada exclusão do cliente {id}");
+
+            var client = _storage.GetById(id);
+            if (client == null)
+            {
+            _logger.Log($"Cliente {id} não encontrado para exclusão");
+                throw new ArgumentException("Cliente não encontrado");
+        }
             _storage.Delete(id);
+            _logger.Log($"Cliente {id} excluído com sucesso");
         }
 
-        // UPDATE
-        public void Update(Client client)
+         // DEACTIVATE   -- O cliente deixa de estar ativo no negócio, mas continua existindo.
+        public void Deactivate(string id)
         {
-            // Validações
-            foreach (var validator in _validators)
+            _logger.Log($"[ClientService] Desativando cliente {id}");
+
+            var client = _storage.GetById(id);
+            if (client == null)
             {
-                validator.Validate(client);
+                _logger.Log($"[ClientService] Cliente {id} não encontrado para desativação");
+                throw new ArgumentException("Cliente não encontrado");
             }
 
-            _storage.Update(client); // envia apenas os campos que o usuário pode alterar
+            client.Deactivate();
+            _storage.Update(client);
 
-
+            _logger.Log($"[ClientService] Cliente {id} desativado com sucesso");
         }
 
+        public void Update(string name, string surname, string email, DateTime birthdate)
+        {
+            throw new NotImplementedException();
+        }
     }
-}
+
+    }
+
