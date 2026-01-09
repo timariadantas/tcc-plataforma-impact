@@ -35,7 +35,7 @@ namespace ClientService.Domain
             Surname = surname;
             Email = email;
             Birthdate = birthdate;
-            CreatedAt = creatdAt;
+            CreatedAt = creatdAt; 
             UpdatedAt = updatedAt;
             Active = active;
         }
